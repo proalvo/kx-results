@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Stream Control: Results</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #16324a; max-width: 480px; }
+  h1 { font-size: 1.2rem; }
+  nav { margin-bottom: 1rem; font-size: .85rem; }
+  nav a { color: #5a7286; margin-right: .8rem; }
+  select, button, input { font: inherit; padding: .5rem; margin: .3rem 0; width: 100%;
+    border-radius: 6px; border: 1px solid #b7c6d4; box-sizing: border-box; }
+  button { background: #16324a; color: white; border: none; cursor: pointer; }
+  label { display: block; font-size: .8rem; color: #46647a; margin-top: .8rem; }
+  #obsUrl { font-family: ui-monospace, monospace; font-size: .8rem; background: #e8eff5; }
+  .mode-row { display: flex; gap: .6rem; margin-top: .5rem; }
+  .mode-row label { display: flex; align-items: center; gap: .3rem; font-size: .9rem;
+    color: #16324a; margin-top: 0; }
+  .mode-row input { width: auto; margin: 0; }
+  .now-live {
+    margin-top: 1.2rem; padding: .8rem 1rem; background: #eef6ff; border-radius: 8px;
+    font-size: .9rem;
+  }
+  .now-live strong { color: #16324a; }
+  .hint { color: #5a7286; font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>Stream Control — Results</h1>
+<nav><a href="/start.html">Start Here</a> <a href="/">Phase page</a><a href="/setup.html">Setup</a><a href="/rules.html">Rules</a>
+  <a href="/gate-judge.html">Gate Judge</a><a href="/stream-startlist-control.html">Start List control</a></nav>
+
+<p class="hint">Set up the OBS Browser Source ONCE with the URL below — it never
+changes. Use the controls on this page to switch what it shows throughout the
+competition, including picking any past heat's result to show, independent of
+whatever the Chief of Scoring currently has open.</p>
+
+<label>OBS Browser Source URL (set this once, forever)</label>
+<input id="obsUrl" type="text" readonly>
+<button id="copyBtn" type="button">Copy link</button>
+<div id="copyNote" style="font-size:.85rem; color:#256029; height:1.2em"></div>
+
+<label>Competition</label>
+<select id="selComp"></select>
+<label>Event</label>
+<select id="selEvent"></select>
+
+<div class="mode-row">
+  <label><input type="radio" name="mode" value="official" checked> Official / Final Result</label>
+  <label><input type="radio" name="mode" value="heat"> A specific heat's result</label>
+</div>
+<div id="heatPicker" style="display:none">
+  <label>Phase</label>
+  <select id="selPhase"></select>
+  <label>Heat</label>
+  <select id="selGroup"></select>
+</div>
+
+<button id="setLiveBtn" type="button">Show this on the Results stream</button>
+<a href="/stream-results.html" target="_blank" style="display:block; text-align:center; margin-top:.6rem; font-size:.85rem">
+  Open overlay in a new tab (preview)</a>
+
+<div class="now-live" id="nowLive">Currently live: —</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+
+$('obsUrl').value = new URL('/stream-results.html', location.href).toString();
+$('copyBtn').onclick = async () => {
+  await navigator.clipboard.writeText($('obsUrl').value);
+  $('copyNote').textContent = 'Copied.';
+  setTimeout(() => $('copyNote').textContent = '', 1500);
+};
+function modeValue() { return document.querySelector('input[name=mode]:checked').value; }
+document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => {
+  $('heatPicker').style.display = modeValue() === 'heat' ? 'block' : 'none';
+});
+
+let eventsCache = [];
+async function loadCompetitions() {
+  const comps = await j('GET', '/api/competitions');
+  $('selComp').innerHTML = comps.map(c =>
+    `<option value="${c.competition_id}">${c.competition_name}</option>`).join('');
+  await loadEvents();
+  $('selComp').onchange = loadEvents;
+  $('selEvent').onchange = loadPhaseOptions;
+  $('selPhase').onchange = loadGroupOptions;
+}
+async function loadEvents() {
+  eventsCache = await j('GET', `/api/events?competition_id=${$('selComp').value}`);
+  $('selEvent').innerHTML = eventsCache.map(e =>
+    `<option value="${e.event_id}">${e.event_code} — ${e.event_name}</option>`).join('');
+  await loadPhaseOptions();
+  await refreshNowLive();
+}
+async function loadPhaseOptions() {
+  if (!$('selEvent').value) { $('selPhase').innerHTML = ''; return; }
+  const ps = await j('GET', `/api/phases?event_id=${$('selEvent').value}`);
+  const phases = [...new Set(ps.map(p => p.phase))].filter(p => p !== 'RESULT');
+  $('selPhase').innerHTML = phases.map(p => `<option>${p}</option>`).join('');
+  $('selPhase').dataset.groups = JSON.stringify(ps);
+  await loadGroupOptions();
+}
+async function loadGroupOptions() {
+  const ps = JSON.parse($('selPhase').dataset.groups || '[]');
+  const gs = ps.filter(p => p.phase === $('selPhase').value).map(p => p.group_no);
+  $('selGroup').innerHTML = gs.map(g => `<option>${g}</option>`).join('');
+}
+
+$('setLiveBtn').onclick = async () => {
+  const mode = modeValue();
+  await j('PATCH', '/api/stream-state', {
+    stream_key: 'results',
+    event_id: $('selEvent').value,
+    mode,
+    phase: mode === 'heat' ? $('selPhase').value : null,
+    group_no: mode === 'heat' ? +$('selGroup').value : null,
+  });
+  await refreshNowLive();
+};
+
+async function refreshNowLive() {
+  const state = await j('GET', '/api/stream-state?key=results');
+  if (!state.event_id) { $('nowLive').textContent = 'Currently live: — (overlay shows nothing)'; return; }
+  const ev = eventsCache.find(e => e.event_id === state.event_id);
+  const evLabel = ev ? `${ev.event_code} — ${ev.event_name}` : '(event not in this competition)';
+  const what = state.mode === 'heat' ? `${state.phase} — Heat ${state.group_no}` : 'Official / Final Result';
+  $('nowLive').innerHTML = `Currently live: <strong>${evLabel}</strong> — <strong>${what}</strong>`;
+}
+
+new EventSource('/api/stream').onmessage = e => {
+  if (e.data === 'stream-state') refreshNowLive();
+};
+
+loadCompetitions();
+</script>
+</body>
+</html>

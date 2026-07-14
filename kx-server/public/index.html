@@ -1,1 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Phase</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #16324a; }
+  h1 { font-size: 1.2rem; }
+  select, input, button { font: inherit; padding: .3rem .5rem; margin: .15rem; }
+  table { border-collapse: collapse; margin-top: 1rem; }
+  th, td { border: 1px solid #b7c6d4; padding: .35rem .6rem; text-align: left; }
+  th { background: #e8eff5; }
+  td.gate { cursor: pointer; text-align: center; min-width: 3.2em; user-select: none; }
+  td.gate.FLT { background: #ffe2a8; font-weight: 600; }
+  td.gate.RAL { background: #ffb3b3; font-weight: 600; }
+  input.time { width: 6.5em; } input.finish { width: 3.5em; }
+  .bar { margin-top: 1rem; }
+  .note { color: #7a2e2e; margin-top: .5rem; white-space: pre-line; }
+  .hint { color: #5a7286; font-size: .85rem; }
+  #liveToggle.on { background: #256029; color: white; }
+</style>
+</head>
+<body>
+<h1>KX-Results — Phase page (Chief of Scoring)</h1>
+<nav style="margin-bottom:.4rem"><a href="/start.html">Start Here</a> | <a href="/">Phase page</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
+<nav style="margin-bottom:1rem; font-size:.9rem; color:#5a7286">Active competition: <strong id="navCompName" style="color:#16324a">—</strong> (<a href="/start.html">switch</a>)</nav>
 
+<div>
+  Event <select id="event"></select>
+  Phase <select id="phase"></select>
+  Heat <select id="group"></select>
+  <button id="reload">Reload</button>
+</div>
+
+<div class="bar" style="background:#eef6ff; padding:.4rem .6rem; border-radius:5px">
+  <button id="liveToggle">Live tracking: OFF</button>
+  <span id="activeHeatStatus">Gate Judge phones see: —</span>
+</div>
+
+<div class="bar">
+  <button id="startTT">Create Time Trial start list</button>
+  <button id="rank">Auto-rank this heat</button>
+  <button id="progress">Apply progression from this phase</button>
+  <button id="official">Compile Official Result</button>
+  <button id="print">Print / PDF</button>
+  <span class="hint">Gate cells: click to cycle — · FLT · RAL (revocations kept in audit trail).
+  Time, Finish, Status, Rank and Slot are editable; edits are saved on change.</span>
+</div>
+
+<table id="tbl"><thead></thead><tbody></tbody></table>
+
+<div class="note" id="note"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+
+const fmt = ms => ms == null ? '' :
+  `${Math.floor(ms/60000)}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}.${String(Math.floor(ms%1000/10)).padStart(2,'0')}`;
+const parse = t => {                      // "1:32.45" | "92.45" | "" -> ms|null
+  if (!t.trim()) return null;
+  const m = t.trim().match(/^(?:(\d+):)?(\d+)(?:[.,](\d{1,2}))?$/);
+  if (!m) throw new Error(`Bad time "${t}" — use m:ss.hh`);
+  return ((+ (m[1]||0))*60 + (+m[2]))*1000 + (+(m[3]||'0').padEnd(2,'0'))*10;
+};
+
+let gates = 6, eventId = null, competitions = [], activeCompetitionId = null;
+const CYCLE = { '': 'FLT', 'FLT': 'RAL', 'RAL': '' };
+
+async function loadActiveCompetition() {
+  const state = await j('GET', '/api/app-state');
+  if (!state.active_competition_id) { location.href = '/start.html'; return; }
+  activeCompetitionId = state.active_competition_id;
+  $('navCompName').textContent = state.competition_name;
+  competitions = await j('GET', '/api/competitions');   // still needed for split-timing lookup
+  await loadEvents();
+}
+async function loadEvents() {
+  const prev = $('event').value;
+  const es = await j('GET', `/api/events?competition_id=${activeCompetitionId}`);
+  $('event').innerHTML = es.map(e =>
+    `<option value="${e.event_id}" data-gates="${e.gates}">${e.event_name}</option>`).join('');
+  if (es.some(e => e.event_id === prev)) $('event').value = prev;
+  await loadPhases();
+}
+const PHASE_ORDER = ['TT', 'Q', 'RQ', 'QF', 'SF', 'F', 'RESULT'];
+
+let liveTracking = false;
+
+async function loadPhases(preferPhase) {
+  eventId = $('event').value;
+  gates = +($('event').selectedOptions[0]?.dataset.gates ?? 6);
+  const prevPhase = $('phase').value;                 // capture before rebuild
+  const ps = await j('GET', `/api/phases?event_id=${eventId}`);
+  const phases = [...new Set(ps.map(p => p.phase))];
+  $('phase').innerHTML = phases.map(p => `<option>${p}</option>`).join('');
+  // Rebuilding innerHTML resets selection to the first option; restore the
+  // phase the user was actually looking at (or the caller's preferred one)
+  // instead of silently jumping back to TT.
+  const selected = (preferPhase && phases.includes(preferPhase)) ? preferPhase
+    : phases.includes(prevPhase) ? prevPhase
+    : phases[0];
+  if (selected) $('phase').value = selected;
+  updateGroups(ps); await loadTable();
+  await loadActiveHeatState();
+  $('phase').onchange = () => { updateGroups(ps); loadTable(); syncActiveHeat(); };
+  $('group').onchange = () => { loadTable(); syncActiveHeat(); };
+}
+// Live tracking: when ON, the phase/heat currently open on screen IS always
+// the active heat Gate Judge phones see — no separate "set active" action.
+// Turning it off clears the pointer (Gate Judges then show "waiting").
+async function loadActiveHeatState() {
+  if (!eventId) { $('activeHeatStatus').textContent = 'Gate Judge phones see: —'; return; }
+  const events = await j('GET', `/api/events?competition_id=${activeCompetitionId}`);
+  const ev = events.find(e => e.event_id === eventId);
+  liveTracking = !!ev?.live_tracking;
+  updateToggleUI();
+  if (liveTracking &&
+      (ev.current_phase !== $('phase').value || ev.current_group !== +$('group').value)) {
+    // reconcile: e.g. after a reload where the dropdown restored a phase
+    // that doesn't match what's still recorded as active server-side
+    await syncActiveHeat();
+  } else {
+    renderActiveHeatStatus(ev);
+  }
+}
+function renderActiveHeatStatus(ev) {
+  $('activeHeatStatus').textContent = ev?.current_phase
+    ? `Gate Judge phones see: ${ev.current_phase} — Heat ${ev.current_group}`
+    : 'Gate Judge phones see: — (waiting)';
+}
+function updateToggleUI() {
+  $('liveToggle').textContent = `Live tracking: ${liveTracking ? 'ON' : 'OFF'}`;
+  $('liveToggle').classList.toggle('on', liveTracking);
+}
+async function syncActiveHeat() {
+  if (!liveTracking || !eventId || !$('phase').value) return;
+  await j('PATCH', '/api/events', { event_id: eventId,
+    current_phase: $('phase').value, current_group: +$('group').value });
+  renderActiveHeatStatus({ current_phase: $('phase').value, current_group: +$('group').value });
+}
+$('liveToggle').onclick = async () => {
+  if (!eventId) return;
+  liveTracking = !liveTracking;
+  updateToggleUI();
+  try {
+    if (liveTracking) {
+      await j('PATCH', '/api/events', { event_id: eventId, live_tracking: 1,
+        current_phase: $('phase').value, current_group: +$('group').value });
+      renderActiveHeatStatus({ current_phase: $('phase').value, current_group: +$('group').value });
+    } else {
+      await j('PATCH', '/api/events', { event_id: eventId, live_tracking: 0,
+        current_phase: null, current_group: null });
+      renderActiveHeatStatus({ current_phase: null });
+    }
+  } catch (e) { $('note').textContent = e.message; }
+};
+function updateGroups(ps) {
+  const prevGroup = $('group').value;
+  const gs = ps.filter(p => p.phase === $('phase').value).map(p => p.group_no);
+  $('group').innerHTML = gs.map(g => `<option>${g}</option>`).join('');
+  if (gs.map(String).includes(prevGroup)) $('group').value = prevGroup;
+}
+
+async function loadTable() {
+  if (!eventId || !$('phase').value) { $('tbl').tBodies[0].innerHTML = ''; return; }
+  const rows = await j('GET',
+    `/api/phase?event_id=${eventId}&phase=${$('phase').value}&group_no=${$('group').value}`);
+  const gateTh = Array.from({length: gates}, (_, i) => `<th>G${i+1}</th>`).join('');
+  // Split-time TT timing (see lib/tt-timing.js): when the competition has
+  // it configured AND we're viewing TT, Time becomes a computed/read-only
+  // display and a new Split column takes over as the actual input — the
+  // raw shared-stopwatch reading, from which the server derives Time.
+  // Every other phase, and every competition without this configured,
+  // behaves exactly as before: Time is entered directly, no Split column.
+  const comp = competitions.find(c => c.competition_id === activeCompetitionId);
+  const splitTiming = $('phase').value === 'TT'
+    && comp?.tt_start_interval_ms != null && comp?.tt_time_shift_ms != null;
+  const splitTh = splitTiming ? '<th>Split</th>' : '';
+  $('tbl').tHead.innerHTML =
+    `<tr><th>Slot</th><th>Bib</th><th>Name</th><th>Country/Club</th><th>TT</th>
+     <th>Time</th>${splitTh}<th>Finish</th>${gateTh}<th>Status</th><th>Rank</th></tr>`;
+  $('tbl').tBodies[0].innerHTML = rows.map(r => {
+    const gateTds = Array.from({length: gates}, (_, i) => {
+      const p = r['gate' + (i+1)] || '';
+      return `<td class="gate ${p}" data-id="${r.result_id}" data-gate="${i+1}"
+                  data-p="${p}">${p}</td>`; }).join('');
+    const timeCell = splitTiming
+      ? `<td class="computed-time" data-result="${r.result_id}">${fmt(r.time_ms)}</td>`   // computed — read only
+      : `<td><input class="time" value="${fmt(r.time_ms)}" data-id="${r.result_id}" data-f="time_ms"></td>`;
+    const splitCell = splitTiming
+      ? `<td><input class="time" value="${fmt(r.split_time_ms)}" data-id="${r.result_id}" data-f="split_time_ms"></td>`
+      : '';
+    return `<tr>
+      <td><input size="2" value="${r.slot_no}" data-id="${r.result_id}" data-f="slot_no"></td>
+      <td>${r.bib}</td>
+      <td>${r.last_name} ${r.first_name}</td>
+      <td>${r.country ?? ''} / ${r.club ?? ''}</td>
+      <td class="tt-ref" data-result="${r.result_id}">${fmt(r.tt_time_ms)}</td>
+      ${timeCell}${splitCell}
+      <td><input class="finish" size="2" value="${r.finish_pos ?? ''}"
+          data-id="${r.result_id}" data-f="finish_pos" data-bib="${r.bib}" placeholder="-"></td>
+      ${gateTds}
+      <td><select data-id="${r.result_id}" data-f="status">
+        ${['', 'DNS', 'DNF', 'DSQ'].map(s =>
+          `<option ${s === (r.status ?? '') ? 'selected' : ''}>${s}</option>`).join('')}
+      </select></td>
+      <td><input size="2" value="${r.rank ?? ''}" data-id="${r.result_id}" data-f="rank"></td>
+    </tr>`;
+  }).join('');
+
+  // inline editing -> PATCH
+  $('tbl').querySelectorAll('[data-f]').forEach(el => el.onchange = async () => {
+    try {
+      let v = el.value === '' ? null : el.value;
+      if (['time_ms', 'split_time_ms'].includes(el.dataset.f)) v = parse(el.value);
+      if (['rank', 'slot_no', 'finish_pos'].includes(el.dataset.f) && v != null) v = +v;
+      const r = await j('PATCH', '/api/result', { result_id: el.dataset.id, [el.dataset.f]: v });
+      if (el.dataset.f === 'split_time_ms') {
+        // Update the computed Time cell in place — a full loadTable()
+        // reload would rebuild the DOM and steal focus from wherever the
+        // Chief has just tabbed/entered to next (see the Enter-to-advance
+        // handler below).
+        const cell = $('tbl').querySelector(`.computed-time[data-result="${el.dataset.id}"]`);
+        if (cell) cell.textContent = fmt(r.time_ms);
+      }
+      // The "TT" reference column (an athlete's Time Trial time, shown on
+      // every phase for context/tie-break reference) is only self-stale
+      // when we're viewing the TT phase itself — that's the one case
+      // where the row just edited IS the TT row the reference points at.
+      // Without this it only ever refreshed via a full table reload,
+      // which the focus-preserving SSE guard above now suppresses while
+      // typing, so it looked stuck until navigating away and back.
+      if (['time_ms', 'split_time_ms'].includes(el.dataset.f) && $('phase').value === 'TT') {
+        const ttCell = $('tbl').querySelector(`.tt-ref[data-result="${el.dataset.id}"]`);
+        if (ttCell) ttCell.textContent = fmt(r.time_ms);
+      }
+    } catch (e) { $('note').textContent = e.message; }
+  });
+  // Fast entry: pressing Enter in Finish/Time/Split saves the value (via the
+  // blur this triggers, above) and moves focus straight to the same field
+  // one row down, so the Chief can key through a whole heat without
+  // touching the mouse — the same spreadsheet-style flow used for rapid
+  // Finish-order / time entry.
+  $('tbl').querySelectorAll('input[data-f]').forEach(el => {
+    if (!['time_ms', 'split_time_ms', 'finish_pos'].includes(el.dataset.f)) return;
+    el.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const nextRow = el.closest('tr')?.nextElementSibling;
+      const next = nextRow?.querySelector(`[data-f="${el.dataset.f}"]`);
+      if (next) { next.focus(); next.select(); }
+    });
+  });
+  // gate cells -> penalty cycle (issue / revoke, audit-safe)
+  $('tbl').querySelectorAll('td.gate').forEach(td => td.onclick = async () => {
+    const cur = td.dataset.p, next = CYCLE[cur];
+    try {
+      if (cur) await j('POST', '/api/penalty/revoke',
+        { result_id: td.dataset.id, gate_no: +td.dataset.gate });
+      if (next) await j('POST', '/api/penalty',
+        { result_id: td.dataset.id, gate_no: +td.dataset.gate, penalty: next });
+    } catch (e) { $('note').textContent = e.message; }
+  });
+}
+
+$('rank').onclick = async () => {
+  const phase = $('phase').value;
+  const finish = [...$('tbl').querySelectorAll('input.finish')]
+    .filter(i => i.value.trim())
+    .sort((a, b) => +a.value - +b.value)
+    .map(i => i.dataset.bib);
+  try {
+    await j('POST', '/api/rank', { event_id: eventId, phase,
+      group_no: +$('group').value, finish_order: finish });
+    $('note').textContent = '';
+  } catch (e) { $('note').textContent = e.message; }
+};
+$('progress').onclick = async () => {
+  const fromPhase = $('phase').value;
+  const nextPhaseGuess = () => {
+    const idx = PHASE_ORDER.indexOf(fromPhase);
+    // pick the nearest later phase in canonical order that now has rows
+    return PHASE_ORDER.slice(idx + 1);
+  };
+  try {
+    const r = await j('POST', '/api/progression',
+      { event_id: eventId, from_phase: fromPhase });
+    $('note').textContent = r.notes.join('\n') || `Created ${r.created} start slots.`;
+    const ps = await j('GET', `/api/phases?event_id=${eventId}`);
+    const have = new Set(ps.map(p => p.phase));
+    const next = nextPhaseGuess().find(p => have.has(p));
+    loadPhases(next);
+  } catch (e) {
+    if (confirm(e.message + '\n\nRegenerate and discard manual edits?')) {
+      const r = await j('POST', '/api/progression',
+        { event_id: eventId, from_phase: fromPhase, regenerate: true });
+      $('note').textContent = r.notes.join('\n');
+      const ps = await j('GET', `/api/phases?event_id=${eventId}`);
+      const have = new Set(ps.map(p => p.phase));
+      const next = nextPhaseGuess().find(p => have.has(p));
+      loadPhases(next);
+    }
+  }
+};
+$('startTT').onclick = async () => {
+  try {
+    await j('POST', '/api/phase/start-tt', { event_id: eventId });
+    $('note').textContent = '';
+    loadPhases();
+  } catch (e) { $('note').textContent = e.message; }
+};
+$('official').onclick = async () => {
+  try {
+    const r = await j('POST', '/api/official-result', { event_id: eventId });
+    let msg = `Official result compiled: ${r.classified} athletes classified.`;
+    if (r.unclassified.length) msg += `\nUNCLASSIFIED: ${r.unclassified.join(', ')}`;
+    if (r.notes.length) msg += `\n` + r.notes.join('\n');
+    $('note').textContent = msg;
+    loadPhases();          // RESULT is now a selectable phase
+  } catch (e) { $('note').textContent = e.message; }
+};
+$('reload').onclick = loadTable;
+$('print').onclick = () => {
+  if (!eventId || !$('phase').value) { $('note').textContent = 'Select a phase first.'; return; }
+  const url = `/print.html?event_id=${eventId}&phase=${$('phase').value}&group_no=${$('group').value}`;
+  window.open(url, '_blank');
+};
+$('event').onchange = loadPhases;
+
+// notify + fetch: any server-side change triggers a table refresh.
+// 'app-state' (the active competition changed, e.g. from another tab or
+// the Start Here page) reloads the whole page — simplest way to avoid
+// partial-state bugs across the several dependent selects (event, phase,
+// heat) that all derive from which competition is active.
+new EventSource('/api/stream').onmessage = ev => {
+  if (ev.data === 'results') {
+    // Don't destroy/rebuild the table while a cell is focused (typing a
+    // time, tabbing through Finish positions) — this fires on EVERY save,
+    // including this browser's own edits (the SSE broadcast echoes back),
+    // so without this guard every single edit would immediately wipe the
+    // focus the Enter-to-advance feature just set. Same reasoning as the
+    // Gate Judge Finish Line's refreshHeat() guard.
+    const active = document.activeElement;
+    if (active && active.tagName === 'INPUT' && $('tbl').contains(active)) return;
+    loadTable();
+  }
+  if (ev.data === 'events') loadEvents();
+  if (ev.data === 'app-state') location.reload();
+  if (ev.data === 'competitions') {
+    j('GET', '/api/competitions').then(cs => {
+      competitions = cs;
+      const c = cs.find(x => x.competition_id === activeCompetitionId);
+      if (c) $('navCompName').textContent = c.competition_name;
+    });
+  }
+};
+
+loadActiveCompetition();
+</script>
+</body>
+</html>

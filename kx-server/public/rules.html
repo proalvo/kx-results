@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Progression Rules</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #16324a; max-width: 900px; }
+  h1 { font-size: 1.2rem; }
+  nav { margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; }
+  select, input, textarea, button { font: inherit; padding: .3rem .5rem; margin: .15rem 0; }
+  input[type=text], input[type=number] { width: 100%; box-sizing: border-box; }
+  table { border-collapse: collapse; margin: .6rem 0 1rem; width: 100%; }
+  th, td { border: 1px solid #b7c6d4; padding: .3rem .55rem; text-align: left; font-size: .92em; }
+  th { background: #e8eff5; }
+  form { background: #f7fafc; border: 1px solid #dbe6ee; border-radius: 6px; padding: .8rem 1rem; margin-bottom: .8rem; }
+  form .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .3rem; }
+  form .row > div { flex: 1; min-width: 140px; }
+  label { display: block; font-size: .8em; color: #46647a; margin-bottom: .1rem; }
+  .note { white-space: pre-line; margin: .4rem 0; }
+  .note.ok { color: #256029; }
+  .note.err { color: #7a2e2e; }
+  .hint { color: #5a7286; font-size: .85em; }
+</style>
+</head>
+<body>
+<h1>KX-Results — Progression Rules</h1>
+<nav><a href="/start.html">Start Here</a> <a href="/">Phase page</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
+
+<p class="hint">Progression rules are generic and reusable across competitions — set these up
+once (e.g. one rule per athlete-count bracket: 12–16, 17–18, 19–20, 28), then pick the
+right one for each event on the Setup page.</p>
+
+<table id="ruleTable"><thead>
+  <tr><th>Name</th><th>Description</th><th>Athlete range</th><th>Steps</th></tr>
+</thead><tbody></tbody></table>
+
+<h2>Upload a new rule</h2>
+<form id="ruleForm">
+  <label>Rule JSON file</label>
+  <input id="r_file" type="file" accept=".json,application/json">
+  <p class="hint">Rule name, description, athlete range, and progression/final-result
+    data all come from the file — nothing to fill in here. See
+    <code>/rules/*.json</code> in the project for worked examples.</p>
+  <button type="submit">Upload rule</button>
+</form>
+<div class="note" id="ruleNote"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+const readFile = file => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result);
+  r.onerror = () => rej(new Error('Could not read file'));
+  r.readAsText(file);
+});
+const note = (id, msg, ok) => {
+  const el = $(id); el.textContent = msg; el.className = 'note ' + (ok ? 'ok' : 'err');
+};
+
+async function loadRules() {
+  const rules = await j('GET', '/api/rules');
+  $('ruleTable').tBodies[0].innerHTML = rules.map(r => {
+    const range = r.min_athletes != null || r.max_athletes != null
+      ? `${r.min_athletes ?? '?'}–${r.max_athletes ?? '?'}` : '(any)';
+    return `<tr>
+      <td><input type="text" value="${r.rule_name}" data-id="${r.rule_id}" data-f="rule_name"></td>
+      <td><input type="text" value="${r.description ?? ''}" data-id="${r.rule_id}" data-f="description"></td>
+      <td>${range}</td><td>${r.step_count}</td></tr>`;
+  }).join('');
+  $('ruleTable').querySelectorAll('[data-f]').forEach(el => el.onchange = async () => {
+    if (el.dataset.f === 'rule_name' && !el.value.trim()) {
+      note('ruleNote', 'Rule name cannot be empty.', false); loadRules(); return;
+    }
+    try {
+      await j('PATCH', '/api/rules',
+        { rule_id: el.dataset.id, [el.dataset.f]: el.value || null });
+      note('ruleNote', 'Saved.', true);
+    } catch (err) { note('ruleNote', err.message, false); loadRules(); }
+  });
+}
+
+$('ruleForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const file = $('r_file').files[0];
+    if (!file) throw new Error('Choose a rule JSON file first');
+    const text = await readFile(file);
+    let rule;
+    try { rule = JSON.parse(text); }
+    catch (parseErr) { throw new Error(`Not valid JSON: ${parseErr.message}`); }
+    const r = await j('POST', '/api/rules', rule);
+    note('ruleNote', `Rule imported: ${r.steps} steps.`, true);
+    e.target.reset();
+    loadRules();
+  } catch (err) { note('ruleNote', err.message, false); }
+};
+
+new EventSource('/api/stream').onmessage = ev => {
+  if (ev.data === 'rules') loadRules();
+};
+
+loadRules();
+</script>
+</body>
+</html>

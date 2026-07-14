@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KX-Results — Stream: Start List</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+
+  /* Pure OBS Browser Source overlay. This page has ONE fixed URL and no
+     selection UI at all — what it shows is controlled remotely from
+     stream-startlist-control.html via server-side stream_state (see
+     schema.sql), not via a query string. 1920x1080, transparent, renders
+     nothing when there's nothing to show — an overlay must never cover
+     the video feed with a placeholder box the way an on-screen app
+     reasonably could. */
+  body {
+    position: relative; width: 1920px; height: 1080px;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: white; overflow: hidden;
+  }
+
+  /* --- TT mode: full start list panel --- */
+  #ttPanel {
+    display: none; position: absolute; top: 60px; left: 60px; width: 620px;
+    background: rgba(12, 26, 41, 0.88); border-radius: 10px;
+    border-left: 6px solid #ffb703; padding: 28px 32px;
+  }
+  #ttPanel .title { font-size: 22px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: #ffb703; margin-bottom: 4px; }
+  #ttPanel .subtitle { font-size: 16px; color: #cdd9e3; margin-bottom: 18px; }
+  #ttPanel table { width: 100%; border-collapse: collapse; }
+  #ttPanel td { padding: 6px 4px; font-size: 20px; border-bottom: 1px solid rgba(255,255,255,.12); }
+  #ttPanel td.bib { font-weight: 700; color: #ffb703; width: 60px; }
+  #ttPanel td.name { font-weight: 600; }
+  #ttPanel td.aff { text-align: right; color: #cdd9e3; font-size: 17px; }
+
+  /* --- non-TT mode: lower third --- */
+  #lowerThird {
+    display: none; position: absolute; left: 0; bottom: 90px; width: 100%;
+    justify-content: center; gap: 4px;
+  }
+  #lowerThird .slot {
+    background: rgba(12, 26, 41, 0.88); border-top: 4px solid #ffb703;
+    padding: 14px 26px; min-width: 260px; text-align: center;
+  }
+  #lowerThird .slot .bib { font-size: 18px; font-weight: 700; color: #ffb703; }
+  #lowerThird .slot .name { font-size: 24px; font-weight: 700; margin-top: 2px; }
+  #lowerThird .heading {
+    position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%);
+    background: #ffb703; color: #0c1a29; font-weight: 700; letter-spacing: 1px;
+    padding: 6px 20px; text-transform: uppercase; font-size: 15px; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="ttPanel"></div>
+<div id="lowerThird"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+
+// ---- club/country display rule (per competition type) -----------------
+// INTERNATIONAL -> country. DOMESTIC -> club. MIXED -> club if the
+// athlete's country matches the competition's own country, else country
+// (i.e. show country specifically to distinguish the visiting athletes).
+function affiliation(athlete, competition) {
+  const sameCountry = athlete.country && competition.country
+    && athlete.country === competition.country;
+  switch (competition.type) {
+    case 'INTERNATIONAL': return athlete.country ?? '';
+    case 'DOMESTIC': return athlete.club ?? '';
+    case 'MIXED': return sameCountry ? (athlete.club ?? '') : (athlete.country ?? '');
+    default: return athlete.club ?? athlete.country ?? '';
+  }
+}
+
+// ---- pagination/rotation for long tables (spec: max 10 rows/page,
+// rotate every 15s). The rotation timer is started ONCE and ticks
+// independently of data refreshes (8s poll + SSE messages can fire far
+// more often than every 15s during a busy event) — if refresh() restarted
+// this timer on every call, rotation would rarely get a chance to fire.
+// Only the row *content* is recomputed on refresh; the countdown itself
+// is untouched, and the page index only resets when the underlying
+// content genuinely changes (tracked via contentKey), not on every poll.
+let pages = [[]];
+let currentPage = 0;
+let lastContentKey = null;
+let renderCurrentPage = null;
+let rotateTimer = null;
+
+function setPaginatedRows(rows, contentKey) {
+  if (contentKey !== lastContentKey) { currentPage = 0; lastContentKey = contentKey; }
+  pages = [];
+  for (let i = 0; i < rows.length; i += 10) pages.push(rows.slice(i, i + 10));
+  if (!pages.length) pages = [[]];
+  if (currentPage >= pages.length) currentPage = 0;
+}
+function ensureRotationTimer() {
+  if (rotateTimer) return;
+  rotateTimer = setInterval(() => {
+    if (pages.length <= 1 || !renderCurrentPage) return;
+    currentPage = (currentPage + 1) % pages.length;
+    renderCurrentPage();
+  }, 15000);
+}
+
+// ============================================================== display
+let pollTimer = null;
+
+// Which mode to show, given the event's live state and which phases exist
+// for it. Extracted as a pure function so this decision (deliberately
+// subtle — see refresh() below) is directly unit-testable rather than
+// only reachable through a live server.
+//   'lower-third' — an active heat exists and it isn't TT
+//   'hidden'      — no active heat, AND the event has already progressed
+//                   past TT (don't revert to a stale pre-competition list)
+//   'tt-list'     — everything else: still in/before TT, show the start list
+function decideMode(info, phases) {
+  if (info.current_phase && info.current_phase !== 'TT') return 'lower-third';
+  if (!info.current_phase && phases.some(p => p.phase !== 'TT')) return 'hidden';
+  return 'tt-list';
+}
+
+async function refresh() {
+  const state = await j('GET', '/api/stream-state?key=startlist');
+  if (!state.event_id) { hideAll(); return; }
+
+  // One request instead of "fetch every competition, then fetch every
+  // event in each, looking for a match" — that N+1 scan was firing on
+  // every 8s poll AND on every results/events/athletes SSE message (which
+  // are global, not scoped to this event), flooding the browser's small
+  // per-origin connection pool and starving other tabs/pages of requests.
+  let info;
+  try { info = await j('GET', `/api/stream-info?event_id=${state.event_id}`); }
+  catch { hideAll(); return; }   // event_id in stream_state no longer exists
+
+  // decideMode only needs `phases` when there's no active heat (see its
+  // 'hidden' branch) — skip the extra request otherwise, same reasoning
+  // as the stream-info fix above: an unconditional extra call on every
+  // refresh is exactly what strained the connection pool last time.
+  const phases = info.current_phase ? [] : await j('GET', `/api/phases?event_id=${info.event_id}`);
+  const mode = decideMode(info, phases);
+  if (mode === 'lower-third') { await renderLowerThird(info); return; }
+  if (mode === 'hidden') { hideAll(); return; }
+
+  const comp = { type: info.competition_type, country: info.competition_country };
+  await renderTT(info, comp);
+}
+function hideAll() {
+  $('ttPanel').style.display = 'none';
+  $('lowerThird').style.display = 'none';
+  renderCurrentPage = null;
+}
+
+async function renderTT(ev, comp) {
+  $('lowerThird').style.display = 'none';
+  // Prefer the actual persisted TT start list (reflects slot_no, which the
+  // Chief can have manually edited); fall back to the raw uploaded roster
+  // (list_order) if the Chief hasn't clicked "Create Time Trial start
+  // list" yet, so the overlay is still useful before TT officially starts.
+  let rows = await j('GET', `/api/phase?event_id=${ev.event_id}&phase=TT&group_no=${ev.current_group ?? 1}`);
+  if (!rows.length) rows = await j('GET', `/api/athletes?event_id=${ev.event_id}`);
+  if (!rows.length) { hideAll(); return; }   // no athletes uploaded at all yet
+
+  setPaginatedRows(rows, `tt:${ev.event_id}`);
+  renderCurrentPage = () => {
+    const page = pages[currentPage] || [];
+    $('ttPanel').innerHTML = `
+      <div class="title">Start List — Time Trial</div>
+      <div class="subtitle">${ev.event_name}</div>
+      <table>${page.map(r => `<tr>
+        <td class="bib">${r.bib}</td>
+        <td class="name">${r.first_name} ${r.last_name}</td>
+        <td class="aff">${affiliation(r, comp)}</td>
+      </tr>`).join('')}</table>`;
+  };
+  renderCurrentPage();
+  $('ttPanel').style.display = 'block';
+}
+
+async function renderLowerThird(ev) {
+  $('ttPanel').style.display = 'none';
+  renderCurrentPage = null;    // lower third is never paginated
+  const rows = await j('GET',
+    `/api/phase?event_id=${ev.event_id}&phase=${ev.current_phase}&group_no=${ev.current_group}`);
+  if (!rows.length) { hideAll(); return; }
+  $('lowerThird').innerHTML = `
+    <div class="heading">${ev.current_phase} — Heat ${ev.current_group}</div>
+    ${rows.map(r => `<div class="slot">
+      <div class="bib">${r.bib}</div>
+      <div class="name">${r.first_name} ${r.last_name}</div>
+    </div>`).join('')}`;
+  $('lowerThird').style.display = 'flex';
+}
+
+// notify + fetch: pick up a remote-control change (stream-state), an
+// active-heat change, or a start-list edit — no action needed at the
+// streaming PC at all.
+new EventSource('/api/stream').onmessage = e => {
+  if (['stream-state', 'events', 'results', 'athletes'].includes(e.data)) refresh();
+};
+
+refresh();
+clearInterval(pollTimer);
+pollTimer = setInterval(refresh, 8000);
+ensureRotationTimer();
+</script>
+</body>
+</html>

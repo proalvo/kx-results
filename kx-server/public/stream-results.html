@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>KX-Results — Stream: Results</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: transparent; }
+
+  /* Pure OBS Browser Source overlay. One fixed URL, no selection UI — what
+     it shows is controlled remotely from stream-results-control.html via
+     server-side stream_state (see schema.sql). 1920x1080, transparent,
+     renders nothing when there's nothing to show. */
+  body {
+    position: relative; width: 1920px; height: 1080px;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: white; overflow: hidden;
+  }
+  #resultPanel {
+    display: none; position: absolute; top: 60px; left: 60px; width: 680px;
+    background: rgba(12, 26, 41, 0.88); border-radius: 10px;
+    border-left: 6px solid #ffb703; padding: 28px 32px;
+  }
+  #resultPanel .title { font-size: 22px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: #ffb703; margin-bottom: 4px; }
+  #resultPanel .subtitle { font-size: 16px; color: #cdd9e3; margin-bottom: 18px; }
+  #resultPanel table { width: 100%; border-collapse: collapse; }
+  #resultPanel td { padding: 7px 4px; font-size: 21px; border-bottom: 1px solid rgba(255,255,255,.12); }
+  #resultPanel td.rank { font-weight: 700; color: #ffb703; width: 56px; }
+  #resultPanel td.name { font-weight: 600; }
+  #resultPanel td.aff { text-align: right; color: #cdd9e3; font-size: 17px; }
+  #resultPanel td.timing { text-align: right; color: #cdd9e3; font-size: 17px; width: 130px; }
+  #resultPanel td.timing.fault { color: #ffb703; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="resultPanel"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+
+// Same rule as the Start List page (kept identical, not shared as a module,
+// matching this project's self-contained-page convention):
+// INTERNATIONAL -> country. DOMESTIC -> club. MIXED -> club if the
+// athlete's country matches the competition's own country, else country.
+function affiliation(athlete, competition) {
+  const sameCountry = athlete.country && competition.country
+    && athlete.country === competition.country;
+  switch (competition.type) {
+    case 'INTERNATIONAL': return athlete.country ?? '';
+    case 'DOMESTIC': return athlete.club ?? '';
+    case 'MIXED': return sameCountry ? (athlete.club ?? '') : (athlete.country ?? '');
+    default: return athlete.club ?? athlete.country ?? '';
+  }
+}
+
+// Same time convention as the Phase page (index.html): m:ss.hh
+const fmtTime = ms => ms == null ? '' :
+  `${Math.floor(ms/60000)}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}.${String(Math.floor(ms%1000/10)).padStart(2,'0')}`;
+
+// What to show in the time/fault column: a status (DNS/DNF/DSQ) takes
+// priority, then RAL, then FLT (matching the same category order used to
+// RANK the row — see lib/ranking.js) — and the raw time is shown ONLY
+// when none of those apply, since a time next to an unseen fault would be
+// misleading on a public graphic (rank already reflects the fault; the
+// time did not decide it).
+function timeOrFault(r) {
+  if (r.status === 'DNS' || r.status === 'DNF' || r.status === 'DSQ') {
+    return { text: r.status, fault: true };
+  }
+  const gates = n => [1,2,3,4,5,6,7,8].filter(g => r['gate' + g] === n);
+  const ral = gates('RAL'), flt = gates('FLT');
+  if (ral.length) return { text: `RAL @ G${ral.join(',')}`, fault: true };
+  if (flt.length) return { text: `FLT @ G${flt.join(',')}`, fault: true };
+  return { text: fmtTime(r.time_ms), fault: false };
+}
+
+// ---- pagination/rotation (spec: max 10 rows/page, rotate every 15s).
+// Rotation timer runs independently of data refresh — see Start List page
+// for the full reasoning (an 8s poll / frequent SSE messages must not
+// keep resetting a 15s countdown, or rotation would rarely fire).
+let pages = [[]];
+let currentPage = 0;
+let lastContentKey = null;
+let renderCurrentPage = null;
+let rotateTimer = null;
+
+function setPaginatedRows(rows, contentKey) {
+  if (contentKey !== lastContentKey) { currentPage = 0; lastContentKey = contentKey; }
+  pages = [];
+  for (let i = 0; i < rows.length; i += 10) pages.push(rows.slice(i, i + 10));
+  if (!pages.length) pages = [[]];
+  if (currentPage >= pages.length) currentPage = 0;
+}
+function ensureRotationTimer() {
+  if (rotateTimer) return;
+  rotateTimer = setInterval(() => {
+    if (pages.length <= 1 || !renderCurrentPage) return;
+    currentPage = (currentPage + 1) % pages.length;
+    renderCurrentPage();
+  }, 15000);
+}
+
+// ============================================================== display
+let pollTimer = null;
+
+async function refresh() {
+  const state = await j('GET', '/api/stream-state?key=results');
+  if (!state.event_id) { hideAll(); return; }
+
+  // One request instead of scanning every competition's events looking
+  // for a match — see stream-startlist.html for why that mattered: the
+  // N+1 scan fired on every poll AND every global results/events/athletes
+  // SSE message, flooding the browser's small per-origin connection pool.
+  let info;
+  try { info = await j('GET', `/api/stream-info?event_id=${state.event_id}`); }
+  catch { hideAll(); return; }
+  const ev = info;
+  const comp = { type: info.competition_type, country: info.competition_country };
+
+  if (state.mode === 'heat') {
+    await renderHeatResult(ev, comp, state);
+  } else {
+    await renderOfficialResult(ev, comp);
+  }
+}
+function hideAll() {
+  $('resultPanel').style.display = 'none';
+  renderCurrentPage = null;
+}
+
+async function renderOfficialResult(ev, comp) {
+  // Official result is compiled on demand by the Chief (Phase page's
+  // "Compile Official Result" button) — until that's happened there is
+  // nothing to show, which is correct: an overlay shouldn't display a
+  // stale or empty "final result" before the event has actually finished.
+  const rows = await j('GET', `/api/phase?event_id=${ev.event_id}&phase=RESULT&group_no=1`);
+  if (!rows.length) { hideAll(); return; }
+  setPaginatedRows(rows, `official:${ev.event_id}`);
+  renderCurrentPage = () => renderTable(
+    'Final Result', ev.event_name, pages[currentPage] || [], comp);
+  renderCurrentPage();
+  $('resultPanel').style.display = 'block';
+}
+
+async function renderHeatResult(ev, comp, state) {
+  // Deliberately independent of the Chief's active-heat pointer: the
+  // streaming operator explicitly chose this phase/heat on the control
+  // page, and it stays on screen (live-updating as it gets ranked/edited)
+  // even after the Chief has moved on to judging a different heat.
+  if (!state.phase || !state.group_no) { hideAll(); return; }
+  const rows = await j('GET',
+    `/api/phase?event_id=${ev.event_id}&phase=${state.phase}&group_no=${state.group_no}`);
+  if (!rows.length) { hideAll(); return; }
+  rows.sort((a, b) => (a.rank ?? a.slot_no) - (b.rank ?? b.slot_no));
+  setPaginatedRows(rows, `heat:${ev.event_id}:${state.phase}:${state.group_no}`);
+  // Time Trial has one continuous field, not heats — "Heat 1" would read
+  // oddly for it, so it gets a plain title; every other phase keeps its
+  // "Phase — Heat N" label since those genuinely run multiple heats.
+  const title = state.phase === 'TT' ? 'Time Trial' : `${state.phase} — Heat ${state.group_no}`;
+  renderCurrentPage = () => renderTable(
+    title, ev.event_name, pages[currentPage] || [], comp, true);
+  renderCurrentPage();
+  $('resultPanel').style.display = 'block';
+}
+
+// Rank + name + club/country is always shown (matches the spec's stated
+// public-results columns). The time/fault column is opt-in per call
+// (showTiming) since it's only meaningful for a real heat's rows — the
+// compiled Official Result rows carry no time_ms or penalty data (see
+// compileOfficialResult in lib/progression.js), so Official Result mode
+// omits the column entirely rather than show it always blank.
+function renderTable(title, subtitle, rows, comp, showTiming) {
+  $('resultPanel').innerHTML = `
+    <div class="title">${title}</div>
+    <div class="subtitle">${subtitle}</div>
+    <table>${rows.map(r => {
+      const timing = showTiming ? timeOrFault(r) : null;
+      return `<tr>
+      <td class="rank">${r.rank ?? ''}</td>
+      <td class="name">${r.first_name} ${r.last_name}</td>
+      <td class="aff">${affiliation(r, comp)}</td>
+      ${showTiming ? `<td class="timing ${timing.fault ? 'fault' : ''}">${timing.text}</td>` : ''}
+    </tr>`;
+    }).join('')}</table>`;
+}
+
+// notify + fetch: pick up a remote-control change (stream-state) or a
+// rank/result edit — no action needed at the streaming PC at all.
+new EventSource('/api/stream').onmessage = e => {
+  if (['stream-state', 'events', 'results', 'athletes'].includes(e.data)) refresh();
+};
+
+refresh();
+clearInterval(pollTimer);
+pollTimer = setInterval(refresh, 8000);
+ensureRotationTimer();
+</script>
+</body>
+</html>

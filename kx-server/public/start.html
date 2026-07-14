@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Start Here</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #16324a; max-width: 520px; margin: 1.5rem auto; }
+  h1 { font-size: 1.3rem; margin-bottom: .3rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; border-bottom: 2px solid #e8eff5; padding-bottom: .3rem; }
+  nav { margin-bottom: 1rem; font-size: .85rem; }
+  nav a { color: #5a7286; margin-right: .8rem; }
+  .hint { color: #5a7286; font-size: .9rem; margin-bottom: 1rem; }
+  select, input, button { font: inherit; padding: .6rem; margin: .3rem 0; width: 100%;
+    border-radius: 6px; border: 1px solid #b7c6d4; box-sizing: border-box; }
+  button { background: #16324a; color: white; border: none; cursor: pointer; font-weight: 600; }
+  button.secondary { background: white; color: #16324a; border: 1px solid #b7c6d4; font-weight: normal; }
+  label { display: block; font-size: .8rem; color: #46647a; margin-top: .8rem; }
+  .row { display: flex; gap: .6rem; }
+  .row > div { flex: 1; }
+  .note { font-size: .9rem; margin-top: .5rem; }
+  .note.err { color: #7a2e2e; }
+  .note.ok { color: #256029; }
+  .current {
+    background: #eef6ff; border-radius: 8px; padding: .9rem 1.1rem; margin: 1rem 0;
+  }
+  .current strong { display: block; font-size: 1.05rem; margin-bottom: .4rem; }
+  details summary { cursor: pointer; color: #5a7286; font-size: .9rem; margin-top: 1.5rem; }
+</style>
+</head>
+<body>
+<h1>KX-Results</h1>
+<p class="hint">Result service for ICF Kayak Cross competitions.</p>
+<nav><a href="/rules.html">Rules</a> <a href="/gate-judge.html">Gate Judge</a>
+  <a href="/stream-startlist-control.html">Stream Control: Start List</a>
+  <a href="/stream-results-control.html">Stream Control: Results</a></nav>
+
+<div class="current" id="currentBox" style="display:none">
+  <strong>Currently active: <span id="currentName"></span></strong>
+  <a href="/" id="continueLink">Continue to the Phase page →</a>
+</div>
+
+<h2>Select an existing competition</h2>
+<select id="selComp"></select>
+<button id="selectBtn" type="button">Make this the active competition</button>
+<div class="note" id="selectNote"></div>
+
+<details>
+<summary>Or create a new competition</summary>
+<form id="compForm" style="margin-top: .8rem">
+  <label>Competition name</label>
+  <input required id="c_name" type="text" placeholder="Finnish Championships 2026">
+  <div class="row">
+    <div><label>Start date</label><input required id="c_start" type="date"></div>
+    <div><label>End date</label><input required id="c_end" type="date"></div>
+  </div>
+  <div class="row">
+    <div><label>Country (3-letter)</label><input required id="c_country" type="text" maxlength="3" placeholder="FIN"></div>
+    <div><label>Location</label><input id="c_location" type="text" placeholder="Helsinki"></div>
+  </div>
+  <div class="row">
+    <div><label>Type</label><select id="c_type">
+      <option value="DOMESTIC">Domestic</option>
+      <option value="INTERNATIONAL">International</option>
+      <option value="MIXED">Mixed</option>
+    </select></div>
+    <div><label>Gate Judge PIN</label><input required id="c_pin" type="text" placeholder="1234"></div>
+  </div>
+  <label>Admin emails (comma-separated, optional)</label>
+  <input id="c_admins" type="text" placeholder="chief@example.com">
+  <button type="submit">Create and make active</button>
+</form>
+</details>
+<div class="note" id="createNote"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+const note = (id, msg, ok) => {
+  const el = $(id); el.textContent = msg; el.className = 'note ' + (ok ? 'ok' : 'err');
+};
+
+async function loadCurrent() {
+  const state = await j('GET', '/api/app-state');
+  if (state.active_competition_id) {
+    $('currentName').textContent = state.competition_name;
+    $('currentBox').style.display = 'block';
+  } else {
+    $('currentBox').style.display = 'none';
+  }
+  return state;
+}
+
+async function loadCompetitions() {
+  const comps = await j('GET', '/api/competitions');
+  $('selComp').innerHTML = comps.length
+    ? comps.map(c => `<option value="${c.competition_id}">${c.competition_name}</option>`).join('')
+    : '<option value="">(none yet — create one below)</option>';
+  const state = await loadCurrent();
+  if (state.active_competition_id && comps.some(c => c.competition_id === state.active_competition_id)) {
+    $('selComp').value = state.active_competition_id;
+  }
+}
+
+$('selectBtn').onclick = async () => {
+  if (!$('selComp').value) { note('selectNote', 'No competition selected.', false); return; }
+  try {
+    await j('PATCH', '/api/app-state', { active_competition_id: $('selComp').value });
+    note('selectNote', 'Active competition set. Redirecting…', true);
+    location.href = '/';
+  } catch (e) { note('selectNote', e.message, false); }
+};
+
+$('compForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const r = await j('POST', '/api/competitions', {
+      competition_name: $('c_name').value,
+      start_date: $('c_start').value,
+      end_date: $('c_end').value,
+      country: $('c_country').value.toUpperCase(),
+      location: $('c_location').value || null,
+      type: $('c_type').value,
+      gate_judge_pin: $('c_pin').value,
+      admins: $('c_admins').value.split(',').map(s => s.trim()).filter(Boolean),
+    });
+    await j('PATCH', '/api/app-state', { active_competition_id: r.competition_id });
+    note('createNote', 'Competition created and made active. Redirecting to Setup…', true);
+    location.href = '/setup.html';
+  } catch (err) { note('createNote', err.message, false); }
+};
+
+new EventSource('/api/stream').onmessage = e => {
+  if (e.data === 'app-state' || e.data === 'competitions') loadCompetitions();
+};
+
+loadCompetitions();
+</script>
+</body>
+</html>

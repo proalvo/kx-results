@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>KX-Results — Gate Judge</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: system-ui, sans-serif; margin: 0; padding: .8rem;
+    color: #16324a; background: #f7fafc; max-width: 480px; margin: 0 auto;
+    font-size: 17px;
+  }
+  h1 { font-size: 1.1rem; margin: .4rem 0 1rem; }
+  select, input, button {
+    font: inherit; padding: .7rem; margin: .3rem 0; width: 100%;
+    box-sizing: border-box; border-radius: 8px; border: 1px solid #b7c6d4;
+  }
+  button {
+    background: #16324a; color: white; border: none; font-weight: 600;
+    cursor: pointer;
+  }
+  button.secondary { background: white; color: #16324a; border: 1px solid #b7c6d4; }
+  button:active { opacity: .8; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .status-bar {
+    background: #e8eff5; border-radius: 8px; padding: .6rem .8rem;
+    margin-bottom: .8rem; font-size: .9rem; display: flex;
+    justify-content: space-between; align-items: center; gap: .5rem;
+  }
+  .status-bar .waiting { color: #7a4f00; }
+  .gate-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin: .6rem 0; }
+  .gate-grid button { margin: 0; padding: 1.1rem 0; font-size: 1.2rem; }
+  .gate-grid button.selected { background: #256029; }
+  .gate-grid button.finish-line { grid-column: 1 / -1; background: #16324a; border: 2px solid #16324a; font-size: 1rem; }
+  .gate-grid button.finish-line.selected { background: #256029; border-color: #256029; }
+  .athlete-card {
+    background: white; border: 1px solid #dbe6ee; border-radius: 10px;
+    padding: .7rem .8rem; margin-bottom: .6rem;
+  }
+  .athlete-card .name { font-weight: 700; font-size: 1.05rem; }
+  .athlete-card .meta { color: #5a7286; font-size: .85rem; margin-bottom: .5rem; }
+  .penalty-buttons { display: flex; gap: .5rem; }
+  .penalty-buttons button { margin: 0; flex: 1; padding: .8rem 0; }
+  .penalty-buttons button.flt { background: #7a4f00; }
+  .penalty-buttons button.ral { background: #7a2e2e; }
+  .penalty-buttons button.active-flt { background: #ffe2a8; color: #7a4f00; border: 2px solid #7a4f00; }
+  .penalty-buttons button.active-ral { background: #ffb3b3; color: #7a2e2e; border: 2px solid #7a2e2e; }
+  .finish-row { display: flex; gap: .5rem; align-items: stretch; }
+  .finish-row .field { flex: 1; }
+  .finish-row label { display: block; font-size: .75rem; color: #5a7286; margin-bottom: .1rem; }
+  .finish-row input { margin: 0; }
+  .finish-row button.dnf { flex: 0 0 4.5rem; margin: 0; background: #7a2e2e; align-self: flex-end; }
+  .finish-row button.dnf.active-dnf { background: #ffb3b3; color: #7a2e2e; border: 2px solid #7a2e2e; }
+  .note { margin: .6rem 0; font-size: .9rem; white-space: pre-line; }
+  .note.err { color: #7a2e2e; }
+  .note.ok { color: #256029; }
+  .link-row { text-align: center; margin-top: .8rem; }
+  .link-row a { color: #5a7286; font-size: .85rem; }
+</style>
+</head>
+<body>
+<h1>Gate Judge</h1>
+
+<!-- Screen 1: PIN login -->
+<div id="screenLogin" class="screen active">
+  <label>Competition</label>
+  <select id="loginComp"></select>
+  <label>PIN</label>
+  <input id="loginPin" type="tel" inputmode="numeric" placeholder="1234" autocomplete="off">
+  <button id="loginBtn">Log in</button>
+  <div class="note err" id="loginNote"></div>
+</div>
+
+<!-- Screen 2: gate selection -->
+<div id="screenGate" class="screen">
+  <p id="gateCompName" style="font-weight:600"></p>
+  <label>Event</label>
+  <select id="gateEvent"></select>
+  <label>Which gate are you judging?</label>
+  <div class="gate-grid" id="gateGrid"></div>
+  <button id="gateContinue" disabled>Continue</button>
+  <div class="link-row"><a href="#" id="logoutLink">Log out</a></div>
+</div>
+
+<!-- Screen 3: live heat / penalty entry -->
+<div id="screenHeat" class="screen">
+  <div class="status-bar">
+    <span id="heatGateLabel">Gate <strong id="heatGateNo"></strong></span>
+    <span id="heatPhaseLabel"></span>
+  </div>
+  <div class="note err" id="heatNote"></div>
+  <div id="heatBody"></div>
+  <div class="link-row">
+    <a href="#" id="changeGateLink">Change gate</a> &nbsp;|&nbsp;
+    <a href="#" id="logoutLink2">Log out</a>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+const note = (id, msg, ok) => {
+  const el = $(id); el.textContent = msg; el.className = 'note ' + (ok ? 'ok' : 'err');
+};
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(name).classList.add('active');
+}
+// Same time convention as the Phase page (index.html): m:ss.hh
+const fmtTime = ms => ms == null ? '' :
+  `${Math.floor(ms/60000)}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}.${String(Math.floor(ms%1000/10)).padStart(2,'0')}`;
+const parseTime = t => {
+  if (!t.trim()) return null;
+  const m = t.trim().match(/^(?:(\d+):)?(\d+)(?:[.,](\d{1,2}))?$/);
+  if (!m) throw new Error(`Bad time "${t}" — use m:ss.hh`);
+  return ((+(m[1]||0))*60 + (+m[2]))*1000 + (+(m[3]||'0').padEnd(2,'0'))*10;
+};
+
+// ------------------------------------------------------------------ state
+// Nothing here is a real login session — it's a lightweight, judge-facing
+// convenience layer. The PIN itself is checked server-side (POST
+// /api/gate-judge/login); once accepted we just remember the competition
+// in memory so re-navigating gate/heat screens doesn't ask again.
+let state = { competitionId: null, competitionName: null, eventId: null, gates: 6, gateNo: null };
+// state.gateNo is either a gate number (1..gates) or the string 'FINISH'.
+
+// -------------------------------------------------------------- 1. login
+async function loadCompetitions() {
+  const comps = await j('GET', '/api/competitions');
+  $('loginComp').innerHTML = comps.map(c =>
+    `<option value="${c.competition_id}">${c.competition_name}</option>`).join('');
+}
+$('loginBtn').onclick = async () => {
+  try {
+    const competitionId = $('loginComp').value;
+    const r = await j('POST', '/api/gate-judge/login',
+      { competition_id: competitionId, pin: $('loginPin').value });
+    state.competitionId = competitionId;
+    state.competitionName = r.competition_name;
+    note('loginNote', '', true);
+    await enterGateScreen();
+  } catch (e) { note('loginNote', e.message, false); }
+};
+
+// --------------------------------------------------------- 2. gate select
+async function enterGateScreen() {
+  $('gateCompName').textContent = state.competitionName;
+  const events = await j('GET', `/api/events?competition_id=${state.competitionId}`);
+  $('gateEvent').innerHTML = events.map(e =>
+    `<option value="${e.event_id}" data-gates="${e.gates}">${e.event_code} — ${e.event_name}</option>`).join('');
+  const applyEventChoice = () => {
+    state.eventId = $('gateEvent').value;
+    state.gates = +($('gateEvent').selectedOptions[0]?.dataset.gates ?? 6);
+    state.gateNo = null;
+    renderGateGrid();
+  };
+  $('gateEvent').onchange = applyEventChoice;
+  applyEventChoice();
+  showScreen('screenGate');
+}
+function renderGateGrid() {
+  const gateBtns = Array.from({ length: state.gates }, (_, i) => i + 1)
+    .map(n => `<button type="button" data-gate="${n}" class="secondary">${n}</button>`).join('');
+  $('gateGrid').innerHTML = gateBtns +
+    `<button type="button" data-gate="FINISH" class="finish-line">Finish line</button>`;
+  $('gateGrid').querySelectorAll('button').forEach(btn => btn.onclick = () => {
+    const v = btn.dataset.gate;
+    state.gateNo = v === 'FINISH' ? 'FINISH' : +v;
+    $('gateGrid').querySelectorAll('button').forEach(b =>
+      b.classList.toggle('selected', b.dataset.gate === v));
+    $('gateContinue').disabled = false;
+  });
+}
+$('gateContinue').onclick = () => enterHeatScreen();
+
+// ------------------------------------------------------- 3. live heat
+let pollTimer = null;
+async function enterHeatScreen() {
+  $('heatGateLabel').innerHTML = state.gateNo === 'FINISH'
+    ? 'Finish line' : `Gate <strong id="heatGateNo">${state.gateNo}</strong>`;
+  showScreen('screenHeat');
+  await refreshHeat();
+  clearInterval(pollTimer);
+  // "Receive the current event and group from the server" — this project's
+  // live channel is Server-Sent Events (see server.js); we refresh on any
+  // 'events' (active heat changed) or 'results' (penalties/times changed
+  // elsewhere, e.g. Chief edits) message, with a light poll as a fallback
+  // for judges on a flaky venue Wi-Fi connection.
+  pollTimer = setInterval(refreshHeat, 8000);
+}
+async function refreshHeat() {
+  // Don't destroy/rebuild the card list while the judge has a field focused
+  // (typing a time, a finish position, mid-edit) — both the 8s poll and any
+  // SSE 'results' message (which fires on EVERY athlete's change, not just
+  // this heat's) would otherwise wipe partial input, forcing the judge to
+  // "beat" the next refresh. Matches index.html's Phase page, which never
+  // reloads out from under an in-progress edit.
+  const active = document.activeElement;
+  if (active && active.tagName === 'INPUT' && $('heatBody').contains(active)) return;
+  const events = await j('GET', `/api/events?competition_id=${state.competitionId}`);
+  const ev = events.find(e => e.event_id === state.eventId);
+  if (!ev || !ev.current_phase) {
+    $('heatPhaseLabel').textContent = '';
+    $('heatBody').innerHTML = `<p class="note err waiting">Waiting for the Chief of Scoring to
+      set the active heat…</p>`;
+    return;
+  }
+  $('heatPhaseLabel').textContent = `${ev.current_phase} — Heat ${ev.current_group}`;
+  const rows = await j('GET',
+    `/api/phase?event_id=${state.eventId}&phase=${ev.current_phase}&group_no=${ev.current_group}`);
+  if (state.gateNo === 'FINISH') {
+    // Split-time TT timing (see lib/tt-timing.js) only applies to TT —
+    // head-to-head heats (QF/SF/F...) don't have a staggered start.
+    let splitTiming = false;
+    if (ev.current_phase === 'TT') {
+      const comps = await j('GET', '/api/competitions');
+      const comp = comps.find(c => c.competition_id === state.competitionId);
+      splitTiming = comp?.tt_start_interval_ms != null && comp?.tt_time_shift_ms != null;
+    }
+    renderFinishLine(rows, splitTiming);
+  } else {
+    renderGatePenalties(rows, state.gateNo);
+  }
+}
+
+function renderGatePenalties(rows, g) {
+  $('heatBody').innerHTML = rows.map(r => {
+    const current = r['gate' + g] || '';
+    return `<div class="athlete-card">
+      <div class="name">${r.bib} — ${r.first_name} ${r.last_name}</div>
+      <div class="meta">${r.club ?? ''} ${r.country ?? ''}</div>
+      <div class="penalty-buttons">
+        <button type="button" class="flt ${current === 'FLT' ? 'active-flt' : ''}"
+          data-id="${r.result_id}" data-p="FLT">FLT</button>
+        <button type="button" class="ral ${current === 'RAL' ? 'active-ral' : ''}"
+          data-id="${r.result_id}" data-p="RAL">RAL</button>
+      </div>
+    </div>`;
+  }).join('') || '<p class="note">No athletes in this heat.</p>';
+
+  $('heatBody').querySelectorAll('[data-p]').forEach(btn => btn.onclick = async () => {
+    const resultId = btn.dataset.id, penalty = btn.dataset.p;
+    const alreadyActive = btn.classList.contains('active-' + penalty.toLowerCase());
+    try {
+      if (alreadyActive) {
+        // tapping the already-active penalty again revokes it (audit trail
+        // preserved server-side — see result_penalty.revoked_at)
+        await j('POST', '/api/penalty/revoke',
+          { result_id: resultId, gate_no: g, revoked_by: `gate-judge:${g}` });
+      } else {
+        await j('POST', '/api/penalty',
+          { result_id: resultId, gate_no: g, penalty, issued_by: `gate-judge:${g}` });
+      }
+      note('heatNote', '', true);
+      await refreshHeat();
+    } catch (e) { note('heatNote', e.message, false); }
+  });
+}
+
+function renderFinishLine(rows, splitTiming) {
+  // Split-time TT timing: the judge enters the raw shared-stopwatch
+  // reading (Split); the server computes the actual result Time from it
+  // (see lib/tt-timing.js) — same relationship as the Phase page's
+  // Split/Time columns. Otherwise (the default) Time is entered directly,
+  // exactly as before.
+  const timeField = splitTiming
+    ? r => `<div class="field">
+        <label>Split</label>
+        <input type="text" inputmode="decimal" placeholder="m:ss.hh"
+          value="${fmtTime(r.split_time_ms)}" data-id="${r.result_id}" data-f="split">
+      </div>
+      <div class="field">
+        <label>Time (calc.)</label>
+        <div style="padding:.7rem 0; font-weight:700">${fmtTime(r.time_ms) || '—'}</div>
+      </div>`
+    : r => `<div class="field">
+        <label>Time</label>
+        <input type="text" inputmode="decimal" placeholder="m:ss.hh"
+          value="${fmtTime(r.time_ms)}" data-id="${r.result_id}" data-f="time">
+      </div>`;
+  $('heatBody').innerHTML = rows.map(r => `<div class="athlete-card">
+      <div class="name">${r.bib} — ${r.first_name} ${r.last_name}</div>
+      <div class="meta">${r.club ?? ''} ${r.country ?? ''}</div>
+      <div class="finish-row">
+        ${timeField(r)}
+        <div class="field">
+          <label>Finish pos.</label>
+          <input type="text" inputmode="numeric" placeholder="-"
+            value="${r.finish_pos ?? ''}" data-id="${r.result_id}" data-f="finish">
+        </div>
+        <button type="button" class="dnf ${r.status === 'DNF' ? 'active-dnf' : ''}"
+          data-id="${r.result_id}" data-dnf="${r.status === 'DNF' ? '1' : '0'}">DNF</button>
+      </div>
+    </div>`).join('') || '<p class="note">No athletes in this heat.</p>';
+
+  // Same non-destructive pattern as index.html's inline edits: on a bad
+  // value, show the error and leave the field exactly as the judge typed
+  // it (no reload, no alert) so they can just fix it and tab away again —
+  // no need to "beat" a refresh with fast, perfectly-formatted input.
+  $('heatBody').querySelectorAll('input[data-f]').forEach(el => el.onchange = async () => {
+    try {
+      let field, value;
+      if (el.dataset.f === 'time' || el.dataset.f === 'split') {
+        field = el.dataset.f === 'split' ? 'split_time_ms' : 'time_ms';
+        value = parseTime(el.value);
+      } else {
+        field = 'finish_pos';
+        const t = el.value.trim();
+        if (t && !/^\d+$/.test(t)) throw new Error(`Finish position must be a whole number, got "${t}"`);
+        value = t ? +t : null;
+      }
+      await j('PATCH', '/api/result', { result_id: el.dataset.id, [field]: value });
+      note('heatNote', '', true);
+      if (field === 'split_time_ms') await refreshHeat();  // show the computed Time
+    } catch (e) { note('heatNote', e.message, false); }
+  });
+  $('heatBody').querySelectorAll('[data-dnf]').forEach(btn => btn.onclick = async () => {
+    try {
+      const isActive = btn.dataset.dnf === '1';
+      // tap again to undo, same toggle pattern as FLT/RAL
+      await j('PATCH', '/api/result',
+        { result_id: btn.dataset.id, status: isActive ? null : 'DNF' });
+      note('heatNote', '', true);
+      await refreshHeat();
+    } catch (e) { note('heatNote', e.message, false); }
+  });
+}
+
+// ------------------------------------------------------------- nav links
+$('changeGateLink').onclick = e => { e.preventDefault(); clearInterval(pollTimer); enterGateScreen(); };
+const logout = e => {
+  e.preventDefault(); clearInterval(pollTimer);
+  state = { competitionId: null, competitionName: null, eventId: null, gates: 6, gateNo: null };
+  $('loginPin').value = '';
+  showScreen('screenLogin');
+};
+$('logoutLink').onclick = logout;
+$('logoutLink2').onclick = logout;
+
+// notify + fetch: pick up an active-heat change or a penalty edited
+// elsewhere (e.g. by the Chief on the Phase page) without user action
+new EventSource('/api/stream').onmessage = ev => {
+  if (($('screenHeat').classList.contains('active')) &&
+      (ev.data === 'events' || ev.data === 'results')) refreshHeat();
+};
+
+loadCompetitions();
+</script>
+</body>
+</html>

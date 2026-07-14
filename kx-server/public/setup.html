@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Setup</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #16324a; max-width: 900px; }
+  h1 { font-size: 1.2rem; }
+  h2 { font-size: 1.05rem; margin-top: 2.2rem; border-bottom: 2px solid #e8eff5; padding-bottom: .3rem; }
+  nav { margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; }
+  select, input, textarea, button { font: inherit; padding: .3rem .5rem; margin: .15rem 0; }
+  button.secondary { background: #7a2e2e; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  button.secondary:disabled { background: #cdd9e3; color: #5a7286; cursor: not-allowed; }
+  input[type=text], input[type=date], input[type=number], textarea, select { width: 100%; box-sizing: border-box; }
+  textarea { font-family: ui-monospace, monospace; font-size: .85em; height: 6em; }
+  table { border-collapse: collapse; margin: .6rem 0 1rem; width: 100%; }
+  th, td { border: 1px solid #b7c6d4; padding: .3rem .55rem; text-align: left; font-size: .92em; }
+  th { background: #e8eff5; }
+  form { background: #f7fafc; border: 1px solid #dbe6ee; border-radius: 6px; padding: .8rem 1rem; margin-bottom: .8rem; }
+  form .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .3rem; }
+  form .row > div { flex: 1; min-width: 140px; }
+  label { display: block; font-size: .8em; color: #46647a; margin-bottom: .1rem; }
+  .note { white-space: pre-line; margin: .4rem 0; }
+  .note.ok { color: #256029; }
+  .note.err { color: #7a2e2e; }
+  .badge { display: inline-block; padding: .05rem .5rem; border-radius: 3px; font-size: .8em; }
+  .badge.fit { background: #d8f0dc; color: #256029; }
+  .badge.nofit { background: #ffe2a8; color: #7a4f00; }
+  details summary { cursor: pointer; font-weight: 600; color: #16324a; }
+</style>
+</head>
+<body>
+<h1>KX-Results — Setup</h1>
+<nav style="margin-bottom:.4rem"><a href="/start.html">Start Here</a> | <a href="/">Phase page (Chief of Scoring)</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
+<nav style="margin-bottom:1rem; font-size:.9rem; color:#5a7286">Active competition: <strong id="navCompName" style="color:#16324a">—</strong> (<a href="/start.html">switch</a>)</nav>
+
+<h2>1. Competitions</h2>
+<table id="compTable"><thead>
+  <tr><th>Name</th><th>Start</th><th>End</th><th>Country</th><th>Location</th><th>Type</th></tr>
+</thead><tbody></tbody></table>
+<details>
+<summary>Add a new competition</summary>
+<form id="compForm">
+  <div class="row">
+    <div><label>Competition name</label><input required id="c_name" type="text" placeholder="Finnish Championships 2026"></div>
+  </div>
+  <div class="row">
+    <div><label>Start date</label><input required id="c_start" type="date"></div>
+    <div><label>End date</label><input required id="c_end" type="date"></div>
+    <div><label>Country (3-letter)</label><input required id="c_country" type="text" maxlength="3" placeholder="FIN"></div>
+    <div><label>Location</label><input id="c_location" type="text" placeholder="Helsinki"></div>
+  </div>
+  <div class="row">
+    <div><label>Type</label><select id="c_type">
+      <option value="DOMESTIC">Domestic</option>
+      <option value="INTERNATIONAL">International</option>
+      <option value="MIXED">Mixed</option>
+    </select></div>
+    <div><label>Gate Judge PIN</label><input required id="c_pin" type="text" placeholder="1234"></div>
+    <div><label>Admin emails (comma-separated)</label><input id="c_admins" type="text" placeholder="chief@example.com"></div>
+  </div>
+  <button type="submit">Create competition</button>
+</form>
+</details>
+<div class="note" id="compNote"></div>
+<p class="hint">This list shows every competition on this server. Creating one
+here does not make it active — use <a href="/start.html">Start Here</a> to
+switch which competition the Events, Split-timing, and Athletes sections
+below (and the Phase page) are working on.</p>
+
+<h2>1a. Split-time TT Timing (optional)</h2>
+<p class="hint">For Time Trials timed with stopwatches on one shared running
+clock (no per-athlete chronometer): athletes start at a fixed interval,
+offset by a time shift so athlete 1 doesn't start at 0:00. At the finish
+line, the raw stopwatch reading (the "split") is entered instead of a
+direct time, and the actual result time is calculated automatically. Leave
+both fields blank to disable — Time is then entered directly as usual,
+the default for every competition. Applies to the active competition
+(above).</p>
+<div class="row">
+  <div><label>Start interval (seconds)</label><input id="tt_interval_s" type="number" min="0" step="1" placeholder="e.g. 60"></div>
+  <div><label>Time shift (minutes)</label><input id="tt_shift_min" type="number" min="0" step="0.1" placeholder="e.g. 5"></div>
+</div>
+<button id="ttSaveBtn" type="button">Save split-time settings</button>
+<button id="ttDisableBtn" type="button" style="background:white; color:#16324a; border:1px solid #b7c6d4">Disable (use direct time entry)</button>
+<div class="note" id="ttNote"></div>
+
+<h2>2. Events</h2>
+<table id="eventTable"><thead>
+  <tr><th>Code</th><th>Name</th><th>Gates</th><th>Rule</th><th>Athletes</th><th>Fit</th><th></th></tr>
+</thead><tbody></tbody></table>
+<details>
+<summary>Add a new event</summary>
+<form id="eventForm">
+  <div class="row">
+    <div><label>Event code</label><input required id="e_code" type="text" placeholder="KXM"></div>
+    <div><label>Event name</label><input required id="e_name" type="text" placeholder="Kayak Cross Men"></div>
+    <div><label>Number of gates</label><input required id="e_gates" type="number" min="1" max="8" value="6"></div>
+  </div>
+  <div class="row">
+    <div style="flex:2"><label>Progression rule</label><select id="e_rule"><option value="">(none yet)</option></select>
+      <span class="hint" style="color:#5a7286">Manage rules on the <a href="/rules.html">Rules page</a>.</span></div>
+  </div>
+  <button type="submit">Create event</button>
+</form>
+</details>
+<div class="note" id="eventNote"></div>
+
+<h2>3. Athletes</h2>
+<p class="note">Event: <select id="athleteEventSelect"></select></p>
+<table id="athleteTable"><thead>
+  <tr><th>Bib</th><th>Name</th><th>Club</th><th>Country</th><th></th></tr>
+</thead><tbody></tbody></table>
+<details>
+<summary>Upload athletes (CSV)</summary>
+<form id="athleteForm">
+  <p class="note">Format: <code>event;bib;first_name;last_name;club;country;icf_id;nf_id</code>
+  — first row is instructions and is skipped; <code>event</code> is the event code (e.g. KXM);
+  icf_id/nf_id are optional. The same competition's file can list multiple events.</p>
+  <input id="a_file" type="file" accept=".csv,text/csv">
+  <button type="submit">Upload athletes</button>
+</form>
+</details>
+<div class="note" id="athleteNote"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+const readFile = file => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result);
+  r.onerror = () => rej(new Error('Could not read file'));
+  r.readAsText(file);
+});
+const note = (id, msg, ok) => {
+  const el = $(id); el.textContent = msg; el.className = 'note ' + (ok ? 'ok' : 'err');
+};
+
+// Local mirror of lib/progression.js:checkRuleFits, for instant UI feedback.
+// The server remains authoritative (POST /api/phase/start-tt enforces this
+// for real); this is a preview only.
+function checkRuleFits(rule, n) {
+  const min = rule.min_athletes, max = rule.max_athletes;
+  if (min == null && max == null) return { fits: true, reason: null };
+  if (min != null && min === max && n !== min)
+    return { fits: false, reason: `requires exactly ${min}` };
+  if (min != null && n < min) return { fits: false, reason: `requires at least ${min}` };
+  if (max != null && n > max) return { fits: false, reason: `supports at most ${max}` };
+  return { fits: true, reason: null };
+}
+
+let competitions = [], rules = [], activeCompetitionId = null;
+
+// ---------------------------------------------------------- competitions
+async function loadCompetitions() {
+  competitions = await j('GET', '/api/competitions');
+  const TYPE_OPTS = [['DOMESTIC','Domestic'],['INTERNATIONAL','International'],['MIXED','Mixed']];
+  $('compTable').tBodies[0].innerHTML = competitions.map(c => `<tr>
+    <td><input type="text" value="${c.competition_name}" data-id="${c.competition_id}" data-f="competition_name"></td>
+    <td><input type="date" value="${c.start_date}" data-id="${c.competition_id}" data-f="start_date"></td>
+    <td><input type="date" value="${c.end_date}" data-id="${c.competition_id}" data-f="end_date"></td>
+    <td><input type="text" maxlength="3" value="${c.country}" data-id="${c.competition_id}" data-f="country"></td>
+    <td><input type="text" value="${c.location ?? ''}" data-id="${c.competition_id}" data-f="location"></td>
+    <td><select data-id="${c.competition_id}" data-f="type">${TYPE_OPTS.map(([v,l]) =>
+      `<option value="${v}" ${c.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+    </tr>`).join('');
+  $('compTable').querySelectorAll('[data-f]').forEach(el => el.onchange = async () => {
+    const field = el.dataset.f;
+    if (['competition_name', 'start_date', 'end_date', 'country'].includes(field) && !el.value.trim()) {
+      note('compNote', `${field.replace(/_/g,' ')} cannot be empty.`, false); loadCompetitions(); return;
+    }
+    try {
+      await j('PATCH', '/api/competitions',
+        { competition_id: el.dataset.id, [field]: field === 'country' ? el.value.toUpperCase() : el.value });
+      note('compNote', 'Saved.', true);
+      loadCompetitions();
+    } catch (err) { note('compNote', err.message, false); loadCompetitions(); }
+  });
+  if (activeCompetitionId) {
+    const c = competitions.find(x => x.competition_id === activeCompetitionId);
+    if (c) $('navCompName').textContent = c.competition_name;
+    loadTTFields();
+  }
+}
+async function loadActiveCompetition() {
+  const state = await j('GET', '/api/app-state');
+  if (!state.active_competition_id) { location.href = '/start.html'; return; }
+  activeCompetitionId = state.active_competition_id;
+  $('navCompName').textContent = state.competition_name;
+  await loadCompetitions();
+  await loadEvents();
+}
+$('compForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    await j('POST', '/api/competitions', {
+      competition_name: $('c_name').value,
+      start_date: $('c_start').value,
+      end_date: $('c_end').value,
+      country: $('c_country').value.toUpperCase(),
+      location: $('c_location').value || null,
+      type: $('c_type').value,
+      gate_judge_pin: $('c_pin').value,
+      admins: $('c_admins').value.split(',').map(s => s.trim()).filter(Boolean),
+    });
+    note('compNote', 'Competition created. It is not automatically active — use Start Here to switch to it.', true);
+    e.target.reset();
+    loadCompetitions();
+  } catch (err) { note('compNote', err.message, false); }
+};
+
+// ---------------------------------------------------------------- events
+async function loadEvents() {
+  if (!activeCompetitionId) { $('eventTable').tBodies[0].innerHTML = ''; return; }
+  const events = await j('GET', `/api/events?competition_id=${activeCompetitionId}`);
+  $('eventTable').tBodies[0].innerHTML = events.map(ev => {
+    const range = ev.min_athletes != null || ev.max_athletes != null
+      ? `${ev.min_athletes ?? '?'}–${ev.max_athletes ?? '?'}` : '(any)';
+    const fit = checkRuleFits(ev, ev.athlete_count);
+    const badge = ev.rule_name
+      ? `<span class="badge ${fit.fits ? 'fit' : 'nofit'}">${fit.fits ? 'fits' : fit.reason}</span>`
+      : '';
+    const ruleOptions = '<option value="">(none)</option>' + rules.map(r => {
+      const r2 = r.min_athletes != null || r.max_athletes != null
+        ? ` (${r.min_athletes ?? '?'}–${r.max_athletes ?? '?'})` : '';
+      return `<option value="${r.rule_id}" ${ev.rule_id === r.rule_id ? 'selected' : ''}>${r.rule_name}${r2}</option>`;
+    }).join('');
+    const deleteBtn = ev.athlete_count > 0
+      ? `<button class="secondary" disabled title="Has ${ev.athlete_count} athlete(s) — remove them first">Delete</button>`
+      : `<button class="secondary" data-delete-event="${ev.event_id}">Delete</button>`;
+    return `<tr>
+      <td><input type="text" value="${ev.event_code}" data-id="${ev.event_id}" data-f="event_code"></td>
+      <td><input type="text" value="${ev.event_name}" data-id="${ev.event_id}" data-f="event_name"></td>
+      <td><input type="number" min="1" max="8" value="${ev.gates}" data-id="${ev.event_id}" data-f="gates"></td>
+      <td><select data-id="${ev.event_id}" data-f="rule_id">${ruleOptions}</select>
+        <span style="color:#5a7286">${range}</span></td>
+      <td>${ev.athlete_count}</td><td>${badge}</td><td>${deleteBtn}</td></tr>`;
+  }).join('');
+  $('eventTable').querySelectorAll('[data-delete-event]').forEach(btn => btn.onclick = async () => {
+    if (!confirm('Delete this event? This cannot be undone.')) return;
+    try {
+      await j('DELETE', '/api/events', { event_id: btn.dataset.deleteEvent });
+      note('eventNote', 'Event deleted.', true);
+      loadEvents();
+    } catch (err) { note('eventNote', err.message, false); }
+  });
+  $('eventTable').querySelectorAll('[data-f]').forEach(el => el.onchange = async () => {
+    const field = el.dataset.f;
+    if (['event_code', 'event_name'].includes(field) && !el.value.trim()) {
+      note('eventNote', `${field.replace(/_/g,' ')} cannot be empty.`, false); loadEvents(); return;
+    }
+    try {
+      let v = el.value;
+      if (field === 'gates') v = +v;
+      if (field === 'rule_id') v = v || null;
+      await j('PATCH', '/api/events', { event_id: el.dataset.id, [field]: v });
+      note('eventNote', 'Saved.', true);
+      loadEvents();
+    } catch (err) { note('eventNote', err.message, false); loadEvents(); }
+  });
+  await loadAthleteEventSelect(events);
+}
+$('eventForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    await j('POST', '/api/events', {
+      competition_id: activeCompetitionId,
+      event_code: $('e_code').value,
+      event_name: $('e_name').value,
+      gates: +$('e_gates').value,
+      rule_id: $('e_rule').value || null,
+    });
+    note('eventNote', 'Event created.', true);
+    e.target.reset();
+    loadEvents();
+  } catch (err) { note('eventNote', err.message, false); }
+};
+
+// ------------------------------------------------------ split-time TT
+function loadTTFields() {
+  const c = competitions.find(x => x.competition_id === activeCompetitionId);
+  $('tt_interval_s').value = c?.tt_start_interval_ms != null ? c.tt_start_interval_ms / 1000 : '';
+  $('tt_shift_min').value = c?.tt_time_shift_ms != null ? c.tt_time_shift_ms / 60000 : '';
+}
+$('ttSaveBtn').onclick = async () => {
+  const s = $('tt_interval_s').value, m = $('tt_shift_min').value;
+  if ((s === '') !== (m === '')) {
+    note('ttNote', 'Set both fields together, or leave both blank to disable.', false);
+    return;
+  }
+  try {
+    await j('PATCH', '/api/competitions', {
+      competition_id: activeCompetitionId,
+      tt_start_interval_ms: s === '' ? null : Math.round(+s * 1000),
+      tt_time_shift_ms: m === '' ? null : Math.round(+m * 60000),
+    });
+    note('ttNote', s === '' ? 'Split-time timing disabled.' : 'Saved.', true);
+    loadCompetitions();
+  } catch (err) { note('ttNote', err.message, false); }
+};
+$('ttDisableBtn').onclick = async () => {
+  $('tt_interval_s').value = ''; $('tt_shift_min').value = '';
+  $('ttSaveBtn').onclick();
+};
+
+// ----------------------------------------------------------------- rules
+async function loadRules() {
+  // Full rule management (list, upload) lives on the dedicated Rules page;
+  // here we only need the list to populate the "Add event" dropdown.
+  rules = await j('GET', '/api/rules');
+  $('e_rule').innerHTML = '<option value="">(none)</option>' + rules.map(r => {
+    const range = r.min_athletes != null || r.max_athletes != null
+      ? ` (${r.min_athletes ?? '?'}–${r.max_athletes ?? '?'})` : '';
+    return `<option value="${r.rule_id}">${r.rule_name}${range}</option>`;
+  }).join('');
+}
+
+// ------------------------------------------------------------- athletes
+async function loadAthleteEventSelect(events) {
+  const prev = $('athleteEventSelect').value;
+  $('athleteEventSelect').innerHTML = events.map(ev =>
+    `<option value="${ev.event_id}">${ev.event_code} — ${ev.event_name}</option>`).join('');
+  if (events.some(ev => ev.event_id === prev)) $('athleteEventSelect').value = prev;
+  await loadAthletes();
+}
+async function loadAthletes() {
+  const eventId = $('athleteEventSelect').value;
+  if (!eventId) { $('athleteTable').tBodies[0].innerHTML = ''; return; }
+  const rows = await j('GET', `/api/athletes?event_id=${eventId}`);
+  // Whether removal is allowed: blocked for the whole event once any TT
+  // time has been recorded (matches the server-side guard in
+  // DELETE /api/athletes — checked proactively here just to grey out the
+  // button rather than let the Chief click into a doomed request).
+  let started = false;
+  try {
+    const tt = await j('GET', `/api/phase?event_id=${eventId}&phase=TT&group_no=1`);
+    started = tt.some(r => r.time_ms != null);
+  } catch { /* no TT phase yet — definitely not started */ }
+  $('athleteTable').tBodies[0].innerHTML = rows.map(a => {
+    const removeBtn = started
+      ? `<button class="secondary" disabled title="Time Trial has recorded times — event already started">Remove</button>`
+      : `<button class="secondary" data-remove-athlete="${a.athlete_id}">Remove</button>`;
+    return `<tr><td>${a.bib}</td><td>${a.first_name} ${a.last_name}</td>
+     <td>${a.club ?? ''}</td><td>${a.country ?? ''}</td><td>${removeBtn}</td></tr>`;
+  }).join('');
+  $('athleteTable').querySelectorAll('[data-remove-athlete]').forEach(btn => btn.onclick = async () => {
+    if (!confirm('Remove this athlete from the event? (Their athlete record is kept — ' +
+      'only their entry in this event is removed.)')) return;
+    try {
+      await j('DELETE', '/api/athletes', { event_id: eventId, athlete_id: btn.dataset.removeAthlete });
+      note('athleteNote', 'Athlete removed from event.', true);
+      loadAthletes(); loadEvents();
+    } catch (err) { note('athleteNote', err.message, false); }
+  });
+}
+$('athleteEventSelect').onchange = loadAthletes;
+$('athleteForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const file = $('a_file').files[0];
+    if (!file) throw new Error('Choose an athletes CSV file first');
+    const csv = await readFile(file);
+    if (!activeCompetitionId) throw new Error('No active competition — use Start Here to select one.');
+    const r = await j('POST', '/api/athletes/upload', { competition_id: activeCompetitionId, csv });
+    let msg = `${r.added} athlete(s) added.`;
+    if (r.errors.length) msg += '\n' + r.errors.join('\n');
+    note('athleteNote', msg, r.errors.length === 0);
+    e.target.reset();
+    loadAthletes(); loadEvents();
+  } catch (err) { note('athleteNote', err.message, false); }
+};
+
+// notify + fetch: live updates from the server (e.g. Phase page in another tab).
+// 'app-state' (active competition changed elsewhere) reloads the whole
+// page — simplest way to avoid partial-state bugs across the several
+// sections that all derive from which competition is active.
+new EventSource('/api/stream').onmessage = ev => {
+  if (ev.data === 'competitions') loadCompetitions();
+  if (ev.data === 'events') loadEvents();
+  if (ev.data === 'rules') { loadRules(); loadEvents(); }
+  if (ev.data === 'athletes') loadAthletes();
+  if (ev.data === 'app-state') location.reload();
+};
+
+(async () => { await loadRules(); await loadActiveCompetition(); })();
+</script>
+</body>
+</html>

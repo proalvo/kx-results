@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Print</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #16324a;
+    margin: 0; background: #eef2f5;
+  }
+
+  /* On-screen chrome (toolbar, page background) — hidden entirely when
+     actually printing, per the .no-print rule below. */
+  #toolbar {
+    padding: .8rem 1.2rem; background: #16324a; color: white;
+    display: flex; gap: .8rem; align-items: center; position: sticky; top: 0;
+  }
+  #toolbar button { font: inherit; padding: .5rem 1rem; border-radius: 5px;
+    border: none; background: #ffb703; color: #16324a; font-weight: 700; cursor: pointer; }
+  #toolbar a { color: #cdd9e3; font-size: .9rem; }
+  #toolbar .status { margin-left: auto; font-size: .85rem; color: #cdd9e3; }
+
+  /* The actual printable sheet: A4 portrait, centered on screen so it
+     previews roughly like a real page before printing. */
+  #sheet {
+    background: white; width: 210mm; min-height: 297mm; margin: 1.5rem auto;
+    padding: 15mm 15mm 20mm; box-shadow: 0 0 12px rgba(0,0,0,.15);
+  }
+
+  #sheetHeader { display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 3px solid #16324a; padding-bottom: .6rem; margin-bottom: 1.2rem; }
+  #sheetHeader .titles h1 { font-size: 1.3rem; margin: 0 0 .2rem; }
+  #sheetHeader .titles .comp { font-size: .95rem; color: #46647a; }
+  #sheetHeader .titles .meta { font-size: .85rem; color: #5a7286; margin-top: .3rem; }
+  /* Designated extension point for a future competition-level header logo
+     (e.g. main sponsor / event organizer) — intentionally empty and
+     invisible until that data exists; sized so an <img> dropped in later
+     needs no layout changes. See README "PDF printing" section. */
+  #headerLogo { max-height: 60px; max-width: 200px; }
+  #headerLogo img { max-height: 60px; max-width: 200px; object-fit: contain; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+  thead { display: table-header-group; }   /* repeat header on every printed page */
+  th, td { border: 1px solid #b7c6d4; padding: .35rem .6rem; text-align: left; font-size: .92em; }
+  th { background: #e8eff5; }
+  td.num { text-align: center; width: 3em; }
+  td.timing { text-align: right; }
+  td.timing.fault { color: #b34700; font-weight: 700; }
+
+  #sheetFooter { margin-top: 1.5rem; padding-top: .5rem; border-top: 1px solid #cdd9e3;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: .78em; color: #5a7286; }
+  /* Same extension point as the header logo, for a future footer image
+     (e.g. sponsor row). Empty and invisible until populated. */
+  #footerLogo { max-height: 36px; }
+  #footerLogo img { max-height: 36px; object-fit: contain; }
+
+  .note { padding: 1rem 1.2rem; color: #7a2e2e; }
+
+  @media print {
+    body { background: white; }
+    #toolbar, .no-print { display: none !important; }
+    #sheet { box-shadow: none; margin: 0; width: auto; min-height: 0; padding: 0; }
+    @page { size: A4 portrait; margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar" class="no-print">
+  <button id="printBtn" type="button">Print / Save as PDF</button>
+  <a href="/">← Back to Phase page</a>
+  <span class="status" id="status"></span>
+</div>
+
+<div id="sheet" style="display:none">
+  <div id="sheetHeader">
+    <div class="titles">
+      <div class="comp" id="compLine"></div>
+      <h1 id="titleLine"></h1>
+      <div class="meta" id="metaLine"></div>
+    </div>
+    <div id="headerLogo"></div>
+  </div>
+
+  <table>
+    <thead><tr id="theadRow"></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <div id="sheetFooter">
+    <div id="printedAt"></div>
+    <div id="footerLogo"></div>
+  </div>
+</div>
+
+<div class="note" id="errorNote"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+const j = (m, url) => fetch(url).then(async r => {
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+});
+
+const PHASE_LABELS = { TT: 'Time Trial', Q: 'Qualification', RQ: 'Repechage Qualification',
+  QF: 'Quarterfinal', SF: 'Semifinal', F: 'Final', RESULT: 'Official Result' };
+
+// Same rule as the streaming pages (kept identical, not shared as a
+// module, matching this project's self-contained-page convention):
+// INTERNATIONAL -> country. DOMESTIC -> club. MIXED -> club if the
+// athlete's country matches the competition's own country, else country.
+function affiliation(athlete, competition) {
+  const sameCountry = athlete.country && competition.country
+    && athlete.country === competition.country;
+  switch (competition.type) {
+    case 'INTERNATIONAL': return athlete.country ?? '';
+    case 'DOMESTIC': return athlete.club ?? '';
+    case 'MIXED': return sameCountry ? (athlete.club ?? '') : (athlete.country ?? '');
+    default: return athlete.club ?? athlete.country ?? '';
+  }
+}
+const fmtTime = ms => ms == null ? '' :
+  `${Math.floor(ms/60000)}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}.${String(Math.floor(ms%1000/10)).padStart(2,'0')}`;
+
+// Same priority as stream-results.html: status > RAL > FLT > time — a
+// time is never shown next to an unseen fault, since rank already
+// reflects the fault and the time didn't decide it.
+function timeOrFault(r) {
+  if (r.status === 'DNS' || r.status === 'DNF' || r.status === 'DSQ') {
+    return { text: r.status, fault: true };
+  }
+  const gates = n => [1,2,3,4,5,6,7,8].filter(g => r['gate' + g] === n);
+  const ral = gates('RAL'), flt = gates('FLT');
+  if (ral.length) return { text: `RAL @ G${ral.join(',')}`, fault: true };
+  if (flt.length) return { text: `FLT @ G${flt.join(',')}`, fault: true };
+  return { text: fmtTime(r.time_ms), fault: false };
+}
+
+async function main() {
+  const eventId = qs.get('event_id');
+  const phase = qs.get('phase');
+  const groupNo = qs.get('group_no') ?? '1';
+  if (!eventId || !phase) {
+    $('errorNote').textContent = 'Missing event_id or phase in the URL.';
+    return;
+  }
+
+  let info, comps;
+  try {
+    info = await j('GET', `/api/stream-info?event_id=${eventId}`);
+    comps = await j('GET', '/api/competitions');
+  } catch (e) { $('errorNote').textContent = e.message; return; }
+  const comp = comps.find(c => c.competition_id === info.competition_id) ?? {};
+
+  let rows = await j('GET', `/api/phase?event_id=${eventId}&phase=${phase}&group_no=${groupNo}`);
+  // Same pre-competition fallback as the streaming Start List overlay: if
+  // TT hasn't been created yet, print the raw uploaded roster so this is
+  // still useful before "Create Time Trial start list" has been clicked.
+  if (!rows.length && phase === 'TT') rows = await j('GET', `/api/athletes?event_id=${eventId}`);
+  if (!rows.length) {
+    $('errorNote').textContent = 'No athletes to print for this phase/heat yet.';
+    return;
+  }
+
+  const hasRanks = rows.some(r => r.rank != null);
+  const isResult = phase === 'RESULT';
+  const label = PHASE_LABELS[phase] ?? phase;
+  const heatLabel = (phase === 'TT' || isResult) ? label : `${label} — Heat ${groupNo}`;
+  const docType = isResult ? 'Official Result' : (hasRanks ? 'Results' : 'Start List');
+
+  $('compLine').textContent = `${comp.competition_name ?? ''} — ${info.event_name}`;
+  $('titleLine').textContent = `${docType}: ${heatLabel}`;
+  $('metaLine').textContent = [comp.location, comp.start_date && comp.end_date
+    ? `${comp.start_date} – ${comp.end_date}` : null].filter(Boolean).join(' · ');
+  document.title = `${docType} — ${heatLabel}`;
+
+  // Sort: ranked rows by rank; otherwise by slot order (or list_order for
+  // the pre-TT roster fallback, which has no slot_no).
+  rows.sort((a, b) => (a.rank ?? a.slot_no ?? a.list_order ?? 0) - (b.rank ?? b.slot_no ?? b.list_order ?? 0));
+
+  const showRank = hasRanks || isResult;
+  const showTiming = hasRanks && !isResult;   // see README: RESULT rows carry no time/penalty data
+  $('theadRow').innerHTML =
+    (showRank ? '<th class="num">Rank</th>' : '<th class="num">Slot</th>') +
+    '<th class="num">Bib</th><th>Name</th><th>Club / Country</th>' +
+    (showTiming ? '<th>Time</th>' : '');
+  $('tbody').innerHTML = rows.map(r => {
+    const timing = showTiming ? timeOrFault(r) : null;
+    return `<tr>
+      <td class="num">${showRank ? (r.rank ?? '') : (r.slot_no ?? r.list_order ?? '')}</td>
+      <td class="num">${r.bib}</td>
+      <td>${r.last_name} ${r.first_name}</td>
+      <td>${affiliation(r, comp)}</td>
+      ${showTiming ? `<td class="timing ${timing.fault ? 'fault' : ''}">${timing.text}</td>` : ''}
+    </tr>`;
+  }).join('');
+
+  // Print date/time — available now, not deferred to a future version.
+  const now = new Date();
+  $('printedAt').textContent = `Printed ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+
+  $('sheet').style.display = 'block';
+  $('status').textContent = `${rows.length} athlete(s)`;
+}
+
+$('printBtn').onclick = () => window.print();
+main();
+</script>
+</body>
+</html>
