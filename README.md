@@ -12,7 +12,9 @@ Results service for the Kayak Cross competitions
 
 ## How to upload athletes
 
-See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are ready meady rule sets for 6 and 8 athletes. **First row is for instructions and always skipped.**
+See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are ready mady rule sets for 6 and 8 athletes, so it is fast to test with those files. 
+
+**First row of the CSV file is for instructions and always skipped.**
 
 Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 - *event* is the event code (e.g. KXM)
