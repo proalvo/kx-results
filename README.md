@@ -23,4 +23,8 @@ Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 - *country*; 3 letter country code (e.g. FIN)
 - *icf_id*; (optional) this is ICF's ID for athlete, which is provided by [Sports Data Platform](https://www.canoeicf.com/sports-data-platform)
 - *nf_id*; (optional) this is national ID for the athlete, e.g. Sportti ID in Finland. 
-   
+
+
+## Roadmap
+
+- Publish results to the public website -  "kx-web" is a separate application to publish results.  
