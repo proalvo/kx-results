@@ -1,0 +1,21 @@
+{
+  "name": "kx-results",
+  "version": "0.1.0",
+  "description": "Result service for ICF Kayak Cross competitions — server skeleton",
+  "main": "server.js",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node scripts/seed.js",
+    "upload-rules": "node scripts/upload-rules.js",
+    "test": "node --test"
+  },
+  "dependencies": {},
+  "_comment_dependencies": [
+    "The skeleton intentionally has ZERO dependencies (node:http + node:sqlite).",
+    "Planned additions for the next development steps:",
+    "  socket.io        — Gate Judge messaging (replaces the SSE stub in server.js)",
+    "  better-sqlite3   — optional drop-in for node:sqlite (same API, see lib/db.js)",
+    "  pdfkit or puppeteer — start list / result PDF printing"
+  ]
+}
