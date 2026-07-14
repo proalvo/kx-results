@@ -1,6 +1,6 @@
 # Rules
 
-This archive has pre-defined rules, that can by uploaded to the datbase with command
+This archive has pre-defined rules, that can by uploaded to the database with command
 ```
 node scripts/upload-rules.js
 ```
