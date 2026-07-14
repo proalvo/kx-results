@@ -12,12 +12,13 @@ Results service for the Kayak Cross competitions
 
 ## How to upload athletes
 
-See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are ready meady rule sets for 6 and 8 athletes.
+See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are ready meady rule sets for 6 and 8 athletes. ***First row is for instructions and always skipped.***
+
 Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
-- first row is instructions and is skipped; event is the event code (e.g. KXM);
-- bib; the bib can be text or number.
-- club; club name
-- country; 3 letter country code, for example "FIN"
-- icf_id; (optional) this ICF's ID for athletes, which is available in (Sports Data Platform)[https://www.canoeicf.com/sports-data-platform]
-- nf_id; (optional) this is national ID for the athlete, e.g. Sportti ID in Finland. 
+- *event* is the event code (e.g. KXM)
+- *bib*; the bib can be text or number
+- *club*; club name
+- *country*; 3 letter country code (e.g. FIN)
+- *icf_id*; (optional) this is ICF's ID for athletes, which is available in (Sports Data Platform)[https://www.canoeicf.com/sports-data-platform]
+- *nf_id*; (optional) this is national ID for the athlete, e.g. Sportti ID in Finland. 
    
