@@ -27,4 +27,8 @@ Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 
 ## Roadmap
 
-- Publish results to the public website -  "kx-web" is a separate application to publish results.  
+- Publish results to the public website -  "kx-web" is a separate application to publish results.
+
+## Knows bugs or features that require improvement
+
+- Improvement: At the moment bib shall be unique in the competition. It should be possible to have the same bib in multiple events.
