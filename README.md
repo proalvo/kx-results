@@ -32,6 +32,7 @@ Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 ## Roadmap
 
 - Publish results to the public website -  "kx-web" is a separate application to publish results.
+- Events are listen in alphabetical order by code (e.g. KXM is 1st, KXN is 2nd). It could be something different also.
 
 ## Knows bugs or features that require improvement
 
