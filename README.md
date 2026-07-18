@@ -12,7 +12,11 @@ Results service for the Kayak Cross competitions
 
 ## How to upload athletes
 
+
 See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are ready mady rule sets for 6 and 8 athletes, so it is fast to test with those files. 
+
+- You can upload all athletes to the different events with one file.
+- You can upload athletes with multiple files e.g. early birds with one file and last minute parcipants with an other file.
 
 **First row of the CSV file is for instructions and always skipped.**
 
