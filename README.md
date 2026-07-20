@@ -1,4 +1,4 @@
-# kx-results
+# kx-results - Result service for Kayak Cross competitions 
 
 KX-Results is a complete, self-hosted result service for Kayak Cross competitions — from national races to international events using ICF rules. 
 
