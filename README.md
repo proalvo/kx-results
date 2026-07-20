@@ -1,13 +1,20 @@
 # kx-results
-Results service for the Kayak Cross competitions
+
+KX-Results is a complete, self-hosted result service for ICF Kayak Cross competitions — from national races to international events. 
+
+The software runs locally on any Windows or Linux PC and serves every role on the field of play through the browser: the Chief of Scoring manages events and results on a PC, Gate Judges record penalties in real time from their mobile phones, and the Streaming Operator gets ready-made, transparent HTML graphics for the streaming software. Rule-based progression systems make KX-Results adapt automatically to any field size, while live updates judges, scoring, and broadcast graphics in sync — heat after heat. 
+
+Start lists and results can be printed as PDF, and results sync easily to a public website for spectators.
+
+***Fast water. Fast results.***
 
 ## Features
 
 - Open Source software - no license fee
 - Create a competition with events
 - Upload athletes to the events from the CSV file
-- Create your own progression system (with limitations of the software)
-- Publish results in Internet in real-time (at website with *kx-web* installed, such as [wwcf.fi/kx-results](https://wwcf.fi/kx-results) 
+- Create your own progression system (with the limitations of  the software) to run through the competiton from time trials to finals 
+- Publish results in Internet in real-time (at website with *kx-web* installed, such as [wwcf.fi/kx-results](https://wwcf.fi/kx-results)
 
 ## How to install and use the software
 
