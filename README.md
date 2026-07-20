@@ -15,6 +15,7 @@ Start lists and results can be printed as PDF, and results sync easily to a publ
 - Upload athletes to the events from the CSV file
 - Create your own progression system (with the limitations of  the software) t
 - Publish results in Internet in real-time (at website with *kx-web* installed, such as [wwcf.fi/kx-results](https://wwcf.fi/kx-results)
+- Print result as PDF.
 
 ## How to install and use the software
 
