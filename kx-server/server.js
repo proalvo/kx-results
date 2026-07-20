@@ -16,6 +16,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { open } = require('./lib/db');
 const { api } = require('./lib/api');
+const { attachWebPublisher } = require('./lib/publisher-wire');
 
 const DB_FILE = process.argv[2] ?? path.join(__dirname, 'kx.db');
 const PORT = +(process.argv[3] ?? 3000);
@@ -29,8 +30,10 @@ const db = open(DB_FILE);
 const sseClients = new Set();
 function notify(topic) {
   for (const res of sseClients) res.write(`data: ${topic}\n\n`);
+  web.onNotify(topic);                       // KX-Web publisher (no-op until registered)
 }
 const routes = api(db, notify);
+const web = attachWebPublisher(db, routes);  // adds /api/web/* routes
 
 // --- http -------------------------------------------------------------------
 const server = http.createServer(async (req, res) => {
@@ -58,7 +61,7 @@ const server = http.createServer(async (req, res) => {
         body = raw ? JSON.parse(raw) : {};
       }
       const q = Object.fromEntries(url.searchParams);
-      const result = handler(q, body) ?? {};
+      const result = (await handler(q, body)) ?? {};   // handlers may be async (/api/web/*)
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (e) {

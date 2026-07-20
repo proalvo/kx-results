@@ -332,6 +332,16 @@ CREATE TABLE stream_state (
 -- selection, since a judge's phone or a streaming PC may reasonably need
 -- to point at a different competition than whatever the Chief currently
 -- has open.
+-- Server-wide settings shared by ALL competitions on this installation,
+-- e.g. the public website address. (app_state is constrained to a single
+-- row, so it cannot hold these.) publisher-wire.js also creates this table
+-- lazily so existing kx.db files upgrade without a migration step.
+CREATE TABLE IF NOT EXISTS server_setting (
+    key        TEXT PRIMARY KEY,          -- 'web_base_url', 'web_org_key'
+    value      TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 CREATE TABLE app_state (
     state_key             TEXT PRIMARY KEY CHECK (state_key = 'active'),
     active_competition_id TEXT REFERENCES competition(competition_id),
