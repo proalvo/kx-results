@@ -19,7 +19,7 @@ Results service for the Kayak Cross competitions
 6. Stop the software by pressing Crtl+C.
 7. Upload pre-defined rules from rules archive `node scripts/upload-rules.js`.  
 
-You can give the database and port as command line parameters, e.g. `node server.js test.db 3001`. You cannot omit the database part if you want to use other database than default, which is *kx.db*.
+*) You can give the database and port as command line parameters, e.g. `node server.js test.db 3001`. You cannot omit the database part if you want to use other database than default, which is *kx.db*.
 
 ## How to upload athletes
 
