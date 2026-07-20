@@ -126,6 +126,38 @@ the default for every competition. Applies to the active competition
 </details>
 <div class="note" id="athleteNote"></div>
 
+
+<h2>4. Publish to website (optional)</h2>
+<p class="note">Results can be published to the public results website so spectators
+can follow online. The website address and the organization key are configured once
+per server — the same website is used for <b>all</b> competitions. Each competition is
+then connected individually; the website issues it a competition-specific key
+automatically. Once connected, results sync in the background whenever they change.</p>
+
+<form id="webSettingsForm">
+  <div class="row">
+    <div><label>Website address
+      <input id="w_url" type="text" placeholder="https://results.example.fi or https://example.fi/kx-results"></label></div>
+    <div><label>Organization key <span id="w_keyState"></span>
+      <input id="w_orgkey" type="password" autocomplete="off"
+             placeholder="org.xxxxxxxx-…  (leave blank to keep current)"></label></div>
+  </div>
+  <button type="submit">Save website settings</button>
+</form>
+<div class="note" id="webSettingsNote"></div>
+
+<form id="webConnectForm">
+  <div class="row">
+    <div><label>Active competition
+      <input id="w_comp" type="text" disabled></label></div>
+    <div style="align-self:end">
+      <button type="submit" id="w_connect">Connect to website</button>
+      <button type="button" id="w_syncnow">Sync now</button>
+    </div>
+  </div>
+</form>
+<div class="note" id="webConnectNote"></div>
+
 <script>
 const $ = id => document.getElementById(id);
 const j = (m, url, body) => fetch(url, { method: m,
@@ -379,6 +411,63 @@ $('athleteForm').onsubmit = async e => {
   } catch (err) { note('athleteNote', err.message, false); }
 };
 
+// ---------------------------------------------------------- publish to website
+async function loadWebSection() {
+  try {
+    const st = await j('GET', '/api/web/settings');
+    $('w_url').value = st.web_base_url ?? '';
+    $('w_keyState').textContent = st.org_key_set ? '(saved)' : '(not set)';
+    const c = competitions.find(x => x.competition_id === activeCompetitionId);
+    $('w_comp').value = c ? c.competition_name : '';
+    const connected = !!(c && c.api_key);
+    $('w_connect').disabled = connected;
+    $('w_syncnow').disabled = !connected;
+    if (connected) {
+      const ws = await j('GET', `/api/web/status?competition_id=${activeCompetitionId}`);
+      const last = ws.last_syncs[0];
+      note('webConnectNote',
+        'Connected.' + (last ? ` Last sync: ${last.status} — ${last.message} (${last.finished_at ?? last.started_at})` : ''),
+        !last || last.status === 'OK');
+    } else {
+      $('webConnectNote').textContent = 'Not connected yet.';
+      $('webConnectNote').className = 'note';
+    }
+  } catch (err) { note('webSettingsNote', err.message, false); }
+}
+
+$('webSettingsForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    await j('POST', '/api/web/settings', {
+      web_base_url: $('w_url').value,
+      org_key: $('w_orgkey').value || undefined
+    });
+    $('w_orgkey').value = '';
+    note('webSettingsNote', 'Website settings saved.', true);
+    loadWebSection();
+  } catch (err) { note('webSettingsNote', err.message, false); }
+};
+
+$('webConnectForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    $('w_connect').disabled = true;
+    const r = await j('POST', '/api/web/register', { competition_id: activeCompetitionId });
+    note('webConnectNote', `Connected — public page: ${$('w_url').value}${r.public_url}`, true);
+    loadCompetitions().then(loadWebSection);
+  } catch (err) {
+    $('w_connect').disabled = false;
+    note('webConnectNote', err.message, false);
+  }
+};
+
+$('w_syncnow').onclick = async () => {
+  try {
+    const r = await j('POST', '/api/web/sync-now', { competition_id: activeCompetitionId });
+    note('webConnectNote', `Synced — ${r.updated} row(s) pushed to the website.`, true);
+  } catch (err) { note('webConnectNote', err.message, false); }
+};
+
 // notify + fetch: live updates from the server (e.g. Phase page in another tab).
 // 'app-state' (active competition changed elsewhere) reloads the whole
 // page — simplest way to avoid partial-state bugs across the several
@@ -391,7 +480,7 @@ new EventSource('/api/stream').onmessage = ev => {
   if (ev.data === 'app-state') location.reload();
 };
 
-(async () => { await loadRules(); await loadActiveCompetition(); })();
+(async () => { await loadRules(); await loadActiveCompetition(); await loadWebSection(); })();
 </script>
 </body>
 </html>
