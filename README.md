@@ -11,7 +11,7 @@ Results service for the Kayak Cross competitions
 
 ## How to install and use the software
 
-1. Install [node](https://[node](https://nodejs.org/)) to your computer. This has been tested with Linux/Mint but 'should' work with Windows also, maybe even with Apple.
+1. Install [node](https://nodejs.org/) to your computer. This has been tested with Linux/Mint but 'should' work with Windows also, maybe even with Apple.
 2. Juts copy the software from here to your computer. *kx-server* archive has actual software.
 3. Open the terminal software and go to the *kx-server* archive
 4. Start the software with command `ǹode server.js`. Empty database for the competition is created also - without rules (see installation step #7).
