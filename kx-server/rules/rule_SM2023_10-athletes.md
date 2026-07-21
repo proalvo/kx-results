@@ -1,5 +1,7 @@
 # Event with 10 athletes
 
+File: [rule_SMSL2023_10-athletes.json](rule_SMSL2023_10-athletes.json)
+
 - Qalification > Semi-Final > Final
 - A and B finals 
 
