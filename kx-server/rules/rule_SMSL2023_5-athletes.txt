@@ -1,0 +1,22 @@
+TIME TRIAL (TT)
+Rank 1–5
+      │
+SEMI-FINAL 1 (SF1)
+─────────────────
+TT 3  → Slot 1
+TT 4  → Slot 2
+TT 5  → RESULT 5
+      │
+FINAL
+─────────────────
+TT 1 → Slot 1
+TT 2 → Slot 2
+SF 1 → Slot 3
+SF 2 → Slot 4
+      │
+RESULT
+F 1  →  1
+F 2  →  2
+F 3  →  3
+F 4  →  4
+SF 4 →  5
