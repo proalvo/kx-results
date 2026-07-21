@@ -1,7 +1,8 @@
-Competition with 5 athletes (rule_SMSL2023_5-athletes.json)
+# Competition with 5 athletes (rule_SMSL2023_5-athletes.json)
 
 - All athletes have at least two runs
 - Best two from Time Trial goes directly to the Final
+
 ```
 TIME TRIAL (TT)
   Rank 1–5
