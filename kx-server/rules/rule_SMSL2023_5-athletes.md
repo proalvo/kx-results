@@ -1,4 +1,4 @@
-# Competition with 5 athletes 
+# Event with 5 athletes 
 
 File: [rule_SMSL2023_5-athletes.json](rule_SMSL2023_5-athletes.json)
 
