@@ -1,0 +1,712 @@
+openapi: 3.1.0
+info:
+  title: KX-Web API
+  version: 1.0.0
+  description: "API of the KX-Web public results website for Kayak Cross competitions.\n\nTwo parts:\n\
+    * **Sync API** (`/api/v1/*`, POST): push endpoints called by the local\n  kx-server (KX-Results).\
+    \ Authenticated with a per-competition API key.\n  Payloads are **full snapshots** and endpoints are\
+    \ **idempotent** —\n  resending the same payload is always safe.\n* **Public API** (`/api/v1/public/*`,\
+    \ GET): read-only JSON consumed by\n  the website's own pages (live polling) and available to third\
+    \ parties.\n  No authentication.\n"
+servers:
+- url: https://results.example.fi
+tags:
+- name: sync
+  description: Push endpoints for kx-server (API key required)
+- name: public
+  description: Read-only endpoints for spectator pages
+security: []
+paths:
+  /api/v1/competition:
+    post:
+      tags:
+      - sync
+      summary: Create or update competition shell and its event list
+      operationId: syncCompetition
+      security:
+      - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompetitionSync'
+      responses:
+        '200':
+          $ref: '#/components/responses/SyncOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/phase:
+    post:
+      tags:
+      - sync
+      summary: Replace the full state of one phase (start list and/or results)
+      description: 'The workhorse endpoint. The entry array **replaces** all existing
+
+        entries of the phase in a single transaction (upsert by
+
+        `grp` + `slot_no`, delete rows not present in the payload).
+
+
+        kx-server should debounce calls (e.g. max 1 push / 2 s per phase)
+
+        and may skip a push when the SHA-256 of the payload equals the
+
+        previous one (`payload_hash` is echoed back in the response).
+
+        '
+      operationId: syncPhase
+      security:
+      - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhaseSync'
+      responses:
+        '200':
+          $ref: '#/components/responses/SyncOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Unknown event_code for this competition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/full:
+    post:
+      tags:
+      - sync
+      summary: Full re-sync of the entire competition
+      description: 'Sends competition metadata, all events, all phases and all entries
+
+        in one payload. Used for first publish and disaster recovery.
+
+        Equivalent to calling `/competition` once and `/phase` for every
+
+        phase, in one transaction.
+
+        '
+      operationId: syncFull
+      security:
+      - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullSync'
+      responses:
+        '200':
+          $ref: '#/components/responses/SyncOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /api/v1/unpublish:
+    post:
+      tags:
+      - sync
+      summary: Hide a phase or the whole competition from the public site
+      operationId: syncUnpublish
+      security:
+      - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Provide either event_code+phase, or scope=competition.
+              properties:
+                scope:
+                  type: string
+                  enum:
+                  - phase
+                  - competition
+                  default: phase
+                event_code:
+                  type: string
+                  examples:
+                  - K1M
+                phase:
+                  $ref: '#/components/schemas/PhaseName'
+      responses:
+        '200':
+          $ref: '#/components/responses/SyncOk'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /api/v1/public/competitions:
+    get:
+      tags:
+      - public
+      summary: List published competitions
+      operationId: listCompetitions
+      parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - upcoming
+          - ongoing
+          - past
+      - name: country
+        in: query
+        schema:
+          type: string
+          pattern: ^[A-Z]{3}$
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CompetitionPublic'
+  /api/v1/public/competitions/{slug}:
+    get:
+      tags:
+      - public
+      summary: Competition details with events and phase statuses
+      operationId: getCompetition
+      parameters:
+      - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitionDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/competitions/{slug}/events/{eventCode}/phases/{phase}:
+    get:
+      tags:
+      - public
+      summary: Start list or results of one phase
+      description: 'The polling endpoint for live pages. Served with
+
+        `Cache-Control: max-age=5` while `status=live` and
+
+        `max-age=3600` when `status=official`. Supports `ETag` /
+
+        `If-None-Match` so pollers usually get `304 Not Modified`.
+
+        '
+      operationId: getPhase
+      parameters:
+      - $ref: '#/components/parameters/slug'
+      - name: eventCode
+        in: path
+        required: true
+        schema:
+          type: string
+        example: K1M
+      - name: phase
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/PhaseName'
+      responses:
+        '200':
+          description: OK
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhasePublic'
+        '304':
+          description: Not modified (ETag matched)
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/public/competitions/{slug}/live:
+    get:
+      tags:
+      - public
+      summary: Currently live phase of the competition, if any
+      operationId: getLive
+      parameters:
+      - $ref: '#/components/parameters/slug'
+      responses:
+        '200':
+          description: OK (live=null when nothing is live)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  live:
+                    oneOf:
+                    - $ref: '#/components/schemas/PhasePublic'
+                    - type: 'null'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/competitions:
+    post:
+      tags:
+      - sync
+      summary: Create a competition and receive its API key (organization key required)
+      description: Provisioning endpoint called by kx-server when a competition is created locally. The
+        per-competition api_key is returned ONCE and stored only as a hash. 409 when the competition_id
+        already exists.
+      operationId: createCompetition
+      security:
+      - orgKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - competition_id
+              - name
+              - country
+              - start_date
+              - end_date
+              properties:
+                competition_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                country:
+                  type: string
+                  pattern: ^[A-Z]{3}$
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+                location:
+                  type: string
+                time_zone:
+                  type: string
+                comp_type:
+                  type: string
+                  enum:
+                  - Domestic
+                  - International
+                  - Mixed
+                slug:
+                  type: string
+                  description: Optional URL slug wish; made unique automatically
+      responses:
+        '201':
+          description: Created — api_key shown only once
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    const: true
+                  slug:
+                    type: string
+                  api_key:
+                    type: string
+                    description: Per-competition key; store immediately, not retrievable later
+                  public_url:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: competition_id already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: 'Per-competition API key generated on the website admin and entered
+
+        into kx-server''s competition settings. The key identifies the
+
+        competition — no competition_id is needed in sync payloads.
+
+        '
+    orgKey:
+      type: http
+      scheme: bearer
+      description: Organization provisioning key ("org.{org_id}.{secret}"), issued once per organization.
+        Lets kx-server create competitions.
+  parameters:
+    slug:
+      name: slug
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[a-z0-9-]{1,80}$
+      example: fin-championships-2026
+  responses:
+    SyncOk:
+      description: Snapshot accepted
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+            - ok
+            properties:
+              ok:
+                type: boolean
+                const: true
+              updated:
+                type: integer
+                description: Number of rows written
+              payload_hash:
+                type: string
+                description: SHA-256 of the received body (echo for dedup)
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found or not published
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Payload failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Too many requests for this API key
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required:
+      - ok
+      - error
+      properties:
+        ok:
+          type: boolean
+          const: false
+        error:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+    PhaseName:
+      type: string
+      enum:
+      - TIME_TRIAL
+      - QUALIFICATION
+      - REPECHAGE
+      - QUARTER_FINAL
+      - SEMI_FINAL
+      - FINAL
+      - OFFICIAL_RESULT
+    PhaseStatus:
+      type: string
+      description: Drives the public UI.
+      enum:
+      - hidden
+      - startlist
+      - live
+      - official
+    CompetitionSync:
+      type: object
+      required:
+      - competition_id
+      - name
+      - country
+      - start_date
+      - end_date
+      - events
+      properties:
+        competition_id:
+          type: string
+          format: uuid
+          description: kx-server's competition UUID (kept identical on the website)
+        name:
+          type: string
+          examples:
+          - Finnish Championships 2026
+        country:
+          type: string
+          pattern: ^[A-Z]{3}$
+        location:
+          type: string
+          examples:
+          - Lieksa
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        time_zone:
+          type: string
+          examples:
+          - Europe/Helsinki
+        comp_type:
+          type: string
+          enum:
+          - Domestic
+          - International
+          - Mixed
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventSync'
+    EventSync:
+      type: object
+      required:
+      - event_id
+      - event_code
+      - event_name
+      - gates
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_code:
+          type: string
+          examples:
+          - K1M
+        event_name:
+          type: string
+          examples:
+          - Kayak Cross Men
+        gates:
+          type: integer
+          minimum: 1
+          maximum: 8
+        sort_order:
+          type: integer
+    PhaseSync:
+      type: object
+      required:
+      - event_code
+      - phase
+      - status
+      - entries
+      properties:
+        event_code:
+          type: string
+          examples:
+          - K1M
+        phase:
+          $ref: '#/components/schemas/PhaseName'
+        status:
+          $ref: '#/components/schemas/PhaseStatus'
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntrySync'
+    EntrySync:
+      type: object
+      required:
+      - grp
+      - slot_no
+      - first_name
+      - last_name
+      properties:
+        grp:
+          type: integer
+          minimum: 1
+          description: Heat/group number ("group" is an SQL reserved word)
+        slot_no:
+          type: integer
+          minimum: 1
+        bib:
+          type:
+          - string
+          - 'null'
+          description: Text — supports colour bibs and leading zeros
+        rank:
+          type:
+          - integer
+          - 'null'
+        first_name:
+          type: string
+        last_name:
+          type: string
+        club:
+          type: string
+        country:
+          type: string
+          pattern: ^[A-Z]{3}$
+        icf_id:
+          type:
+          - string
+          - 'null'
+        nf_id:
+          type:
+          - string
+          - 'null'
+        score:
+          type:
+          - number
+          - 'null'
+          description: Time (time trial) or computed score; display only
+        dns:
+          type: boolean
+          default: false
+        dnf:
+          type: boolean
+          default: false
+        dsq:
+          type: boolean
+          default: false
+        ral:
+          type: boolean
+          default: false
+        gates:
+          type: array
+          maxItems: 8
+          description: One element per gate, index 0 = gate 1. null = no penalty, 1 = FLT, 2 = RAL. Display
+            only; ranking stays in kx-server.
+          items:
+            type:
+            - integer
+            - 'null'
+      examples:
+      - grp: 1
+        slot_no: 1
+        bib: 12
+        rank: 1
+        first_name: Matti
+        last_name: Meikäläinen
+        club: Koskimelojat
+        country: FIN
+        score: null
+        dns: false
+        dnf: false
+        dsq: false
+        ral: false
+        gates:
+        - 0
+        - 0
+        - 2
+        - 0
+        - null
+        - null
+        - null
+        - null
+    FullSync:
+      allOf:
+      - $ref: '#/components/schemas/CompetitionSync'
+      - type: object
+        required:
+        - phases
+        properties:
+          phases:
+            type: array
+            items:
+              $ref: '#/components/schemas/PhaseSync'
+    CompetitionPublic:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        country:
+          type: string
+        location:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        organization:
+          type: string
+    CompetitionDetail:
+      allOf:
+      - $ref: '#/components/schemas/CompetitionPublic'
+      - type: object
+        properties:
+          events:
+            type: array
+            items:
+              type: object
+              properties:
+                event_code:
+                  type: string
+                event_name:
+                  type: string
+                gates:
+                  type: integer
+                phases:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      phase:
+                        $ref: '#/components/schemas/PhaseName'
+                      status:
+                        $ref: '#/components/schemas/PhaseStatus'
+                      updated_at:
+                        type: string
+                        format: date-time
+    PhasePublic:
+      type: object
+      properties:
+        event_code:
+          type: string
+        event_name:
+          type: string
+        phase:
+          $ref: '#/components/schemas/PhaseName'
+        status:
+          $ref: '#/components/schemas/PhaseStatus'
+        gates:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntrySync'
