@@ -3,7 +3,7 @@
 File: [rule_SMSL2023_6-athletes.json](rule_SMSL2023_6-athletes.json)
 
 - 2 heats in Semi-Final
-- Two from each heat advance to the Final.
+- Two from each Semi-Final advance to the Final.
 
 
 ```
