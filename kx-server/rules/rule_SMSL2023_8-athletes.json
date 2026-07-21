@@ -1,6 +1,6 @@
 {
   "rule_name": "SMSL 2023, 8 athletes",
-  "description": "TT > SF > F, no B-final",
+  "description": "TT > SF x2 > F, no B-final",
   "min_athletes": 8,
   "max_athletes": 8,
   "progression": [
