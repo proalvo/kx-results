@@ -1,6 +1,6 @@
 # Rules
 
-This archive has pre-defined rules, but you can create also your own set of rules. It also has *.txt files to explain progression system defined by the *.json file with the same name.
+This archive has pre-defined rules, but you can create also your own set of rules. It also has *.md files to explain progression system defined by the *.json file with the same name.
 
 Rules can by uploaded to the database with command:
 ```
