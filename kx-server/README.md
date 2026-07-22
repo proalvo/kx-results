@@ -443,8 +443,8 @@ as before (`final_result` members become `to_phase='RESULT'`,
 `to_group=0`, `to_slot=base_rank`) — `applyProgression` and
 `compileOfficialResult` are unchanged.
 
-`rules/` holds six real, validated rules (12–16, 17–18, 19–20-with-RQ,
-28-exact, and 6- and 8-athlete no-B-final rules) — these are the actual files
+`rules/` holds seven real, validated rules (12–16, 17–18, 19–20-with-RQ,
+28-exact, and 4-, 6-, and 8-athlete no-B-final rules) — these are the actual files
 used by the test suite and seed scripts, not copies kept in sync by hand.
 
 ## Rule metadata: min_athletes / max_athletes
@@ -520,6 +520,19 @@ guard never retroactively blocks existing data.
 
 ## Known issues fixed
 
+- **Bib uniqueness**: `UNIQUE (event_id, bib)` was already scoped per
+  event, not global — the same bib has always been reusable across
+  different events (e.g. an athlete entered in both Kayak Cross Men and a
+  relay). Verified live against the running server to confirm this hadn't
+  regressed. What genuinely needed fixing while checking: a duplicate bib
+  *within* the same event aborted the entire upload batch with a raw
+  `UNIQUE constraint failed: event_athlete.event_id, event_athlete.bib`
+  error, discarding every other athlete on unrelated lines. Fixed to match
+  the existing "unknown event" handling: a clean per-line error
+  (`Line 3: bib "7" is already used in event "KXM"`), the rest of the
+  batch still commits, and `list_order` stays contiguous (a rejected line
+  doesn't burn a sequence number and leave a gap in the start order).
+
 - **"TT" reference column going stale on direct Time entry (split timing
   off)**: this column (an athlete's Time Trial time, shown on every phase
   for context/tie-break reference — self-referential when viewing TT
@@ -588,37 +601,3 @@ guard never retroactively blocks existing data.
    print-to-PDF, available uniformly in every phase; see "PDF printing")
 7. Public website sync (single idempotent POST /api/sync, API-key auth,
    incremental by updated_at) — MariaDB schema already drafted
-
-## Publishing to the public website (KX-Web)
-
-kx-server can push start lists and results to the public KX-Web site
-(PHP + MariaDB on shared hosting; separate package). Zero new
-dependencies — native `fetch` and the existing `node:sqlite`.
-
-Files: `lib/publisher.js` (debounce, hash-skip, retry queue),
-`lib/publisher-payloads.js` (schema -> Sync API mapping, penalties from
-`result_penalty`, FLT=1/RAL=2 in the gates array, `time_ms` -> seconds),
-`lib/publisher-wire.js` (glue: notify() hook, `/api/web/*` routes,
-`sync_log` entries), `lib/register.js` (create the competition on the
-website with the organization key). API contract: `docs/kx-web-openapi.yaml`.
-
-Setup:
-1. In setup.html, section "4. Publish to website": enter the website
-   address and the organization key ONCE per server — the same website is
-   used for all competitions (stored in the `server_setting` table; the
-   org key is write-only and never echoed back to the browser).
-2. Per competition, press "Connect to website"
-   (`POST /api/web/register { competition_id }`). The website returns the
-   competition api_key, stored automatically in `competition.api_key`.
-3. Done — every `notify('results'|'athletes'|'events'|'competitions')`
-   now triggers a debounced push of exactly the phases whose
-   `updated_at` changed (the schema's incremental-sync design).
-
-Chief of Scoring endpoints: `GET/POST /api/web/settings` (server-wide
-website address + org key), `POST /api/web/sync-now` (full re-sync),
-`POST /api/web/publish-official { competition_id, event_id, phase }`
-(officialness is a jury decision — never derived), `GET /api/web/status`.
-
-Phase mapping: TT→TIME_TRIAL, Q→QUALIFICATION, RQ→REPECHAGE,
-QF→QUARTER_FINAL, SF→SEMI_FINAL, F→FINAL, RESULT→OFFICIAL_RESULT.
-Live status follows `event.live_tracking`/`current_phase`.
