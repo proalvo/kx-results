@@ -47,7 +47,7 @@ const toLocalPhase = (w) => {
 function buildCompetitionSync(db, competitionId) {
   const c = db.prepare(
     `SELECT competition_id, competition_name, country, location,
-            start_date, end_date, time_zone, type
+            start_date, end_date, time_zone, type, banner_url
        FROM competition WHERE competition_id = ?`
   ).get(competitionId);
   if (!c) throw new Error(`Competition not found: ${competitionId}`);
@@ -68,6 +68,7 @@ function buildCompetitionSync(db, competitionId) {
     time_zone: c.time_zone ?? 'Europe/Helsinki',
     // kx-server stores DOMESTIC/INTERNATIONAL/MIXED; web expects capitalized
     comp_type: { DOMESTIC: 'Domestic', INTERNATIONAL: 'International', MIXED: 'Mixed' }[c.type] ?? 'Domestic',
+    banner_url: c.banner_url ?? null,
     events: events.map((e, i) => ({
       event_id: e.event_id,
       event_code: e.event_code,

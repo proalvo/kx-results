@@ -47,7 +47,7 @@ function api(db, notify) {
 
   on('PATCH', '/api/competitions', (q, body) => {
     const allowed = ['competition_name', 'start_date', 'end_date', 'country',
-      'location', 'type', 'tt_start_interval_ms', 'tt_time_shift_ms'];
+      'location', 'type', 'tt_start_interval_ms', 'tt_time_shift_ms', 'banner_url'];
     const sets = allowed.filter(k => k in body);
     if (!sets.length) throw new Error('Nothing to update');
     try {
@@ -259,6 +259,14 @@ function api(db, notify) {
         if (!nextSeq.has(ev.event_id)) nextSeq.set(ev.event_id, maxListOrder.get(ev.event_id).m);
         const listOrder = nextSeq.get(ev.event_id) + 1;
         nextSeq.set(ev.event_id, listOrder);
+        // Check for duplicate bib in this event (give a helpful error)
+        const existing = db.prepare(
+          `SELECT athlete_id FROM event_athlete WHERE event_id = ? AND bib = ?`
+        ).get(ev.event_id, bib);
+        if (existing) {
+          errors.push(`Line ${i + 2}: bib "${bib}" is already in use in event ${evCode}`);
+          continue;
+        }
         db.prepare(`INSERT INTO event_athlete (event_id, athlete_id, bib, list_order,
                       first_name, first_name_initial, last_name, club, country)
                     VALUES (?,?,?,?,?,?,?,?,?)`
@@ -271,6 +279,55 @@ function api(db, notify) {
     notify('athletes');
     return { added, errors };
   });
+
+  // PDF branding: header and footer images (optional, PNG/JPG)
+  // Note: These handle multipart/form-data with file upload.
+  // In a real production server with express/multer, this would be:
+  //   app.post('/api/competition/:id/pdf-header', multer().single('image'), (req,res) => {...})
+  // For now, we accept base64-encoded images in the body to keep it simple.
+  on('POST', '/api/competition/:id/pdf-header', (q, body) => {
+    const comp = db.prepare('SELECT competition_id FROM competition WHERE competition_id = ?').get(q.id);
+    if (!comp) throw new Error('Competition not found');
+    if (!body.image || !body.filename) throw new Error('Missing image data or filename');
+    // body.image is expected to be base64-encoded already (from form-data conversion)
+    const buffer = Buffer.from(body.image, 'base64');
+    if (buffer.length > 1024*1024) throw new Error('Image must be ≤ 1 MB');
+    db.prepare(`UPDATE competition SET pdf_header_image = ?, pdf_header_filename = ? WHERE competition_id = ?`)
+      .run(buffer, body.filename, q.id);
+    notify('competitions');
+    return { ok: true };
+  });
+
+  on('DELETE', '/api/competition/:id/pdf-header', (q) => {
+    const comp = db.prepare('SELECT competition_id FROM competition WHERE competition_id = ?').get(q.id);
+    if (!comp) throw new Error('Competition not found');
+    db.prepare(`UPDATE competition SET pdf_header_image = NULL, pdf_header_filename = NULL WHERE competition_id = ?`)
+      .run(q.id);
+    notify('competitions');
+    return { ok: true };
+  });
+
+  on('POST', '/api/competition/:id/pdf-footer', (q, body) => {
+    const comp = db.prepare('SELECT competition_id FROM competition WHERE competition_id = ?').get(q.id);
+    if (!comp) throw new Error('Competition not found');
+    if (!body.image || !body.filename) throw new Error('Missing image data or filename');
+    const buffer = Buffer.from(body.image, 'base64');
+    if (buffer.length > 1024*1024) throw new Error('Image must be ≤ 1 MB');
+    db.prepare(`UPDATE competition SET pdf_footer_image = ?, pdf_footer_filename = ? WHERE competition_id = ?`)
+      .run(buffer, body.filename, q.id);
+    notify('competitions');
+    return { ok: true };
+  });
+
+  on('DELETE', '/api/competition/:id/pdf-footer', (q) => {
+    const comp = db.prepare('SELECT competition_id FROM competition WHERE competition_id = ?').get(q.id);
+    if (!comp) throw new Error('Competition not found');
+    db.prepare(`UPDATE competition SET pdf_footer_image = NULL, pdf_footer_filename = NULL WHERE competition_id = ?`)
+      .run(q.id);
+    notify('competitions');
+    return { ok: true };
+  });
+
 
   on('DELETE', '/api/athletes', (q, body) => {
     // Removes this athlete from the EVENT only (deletes the event_athlete
