@@ -102,7 +102,8 @@ test('wire: register -> notify(results) publishes only dirty phases', async () =
   // register (mock returns 201 shape through generic mock? use direct settings)
   global.fetch = async (url, opts) => {                       // registration mock
     if (url.endsWith('/api/v1/competitions')) {
-      return { status: 201, json: async () => ({ ok: true, api_key: compId + '.sec', slug: 'sm-2026', public_url: '/c/sm-2026' }) };
+      const payload = { ok: true, api_key: compId + '.sec', slug: 'sm-2026', public_url: '/competition/sm-2026' };
+      return { status: 201, text: async () => JSON.stringify(payload), json: async () => payload };
     }
     const body = JSON.parse(opts.body);
     webCalls.push({ url, body });
@@ -166,4 +167,84 @@ test('wire: publish-official overrides derived status', async () => {
   });
   assert.strictEqual(r.ok, true);
   assert.strictEqual(webCalls[0].body.status, 'official');
+});
+
+
+test('http dispatcher: rejecting async route returns 400, does not crash', async () => {
+  const http = require('node:http');
+  // minimal replica of server.js dispatch with the await fix
+  const routes = {
+    'POST /boom': async () => { throw new Error('async failure'); },
+    'POST /ok':   async () => ({ fine: true })
+  };
+  const srv = http.createServer(async (req, res) => {
+    const url = new URL(req.url, 'http://x');
+    const handler = routes[`${req.method} ${url.pathname}`];
+    try {
+      const result = (await handler({}, {})) ?? {};
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+  });
+  await new Promise((r) => srv.listen(0, r));
+  const port = srv.address().port;
+  const realFetch = Object.getPrototypeOf(global.fetch) ? global.fetch : null;
+  // use node http directly (global.fetch is mocked in this suite)
+  const request = (path) => new Promise((resolve, reject) => {
+    const req2 = http.request({ port, path, method: 'POST' }, (r) => {
+      let b = ''; r.on('data', (c) => b += c);
+      r.on('end', () => resolve({ status: r.statusCode, body: JSON.parse(b) }));
+    });
+    req2.on('error', reject); req2.end();
+  });
+  const bad = await request('/boom');
+  assert.strictEqual(bad.status, 400);
+  assert.strictEqual(bad.body.error, 'async failure');
+  const good = await request('/ok');
+  assert.strictEqual(good.status, 200);
+  assert.deepStrictEqual(good.body, { fine: true });
+  srv.close();
+});
+
+
+
+test('athletes: same bib allowed in different events, rejected in same event', async () => {
+  const db = open(':memory:');
+  const compId = uuid();
+  db.prepare(`INSERT INTO competition (competition_id, competition_name, start_date, end_date,
+              country, type, gate_judge_pin)
+              VALUES (?, 'Test','2026-07-22','2026-07-22','FIN','DOMESTIC','1234')`).run(compId);
+  db.prepare(`INSERT INTO event (event_id, competition_id, event_code, event_name, gates)
+              VALUES (?, ?, 'KXM', 'Men', 4)`).run(uuid(), compId);
+  db.prepare(`INSERT INTO event (event_id, competition_id, event_code, event_name, gates)
+              VALUES (?, ?, 'KXW', 'Women', 4)`).run(uuid(), compId);
+
+  const { api } = require('../lib/api');
+  const routes = api(db, () => {});
+
+  // Upload the same bib (101) to both events — should succeed
+  const r1 = await routes['POST /api/athletes/upload']({}, {
+    competition_id: compId,
+    csv: 'event;bib;first_name;last_name;club;country\nKXM;101;Alice;Smith;Club;FIN'
+  });
+  assert.strictEqual(r1.added, 1);
+  assert.strictEqual(r1.errors.length, 0);
+
+  const r2 = await routes['POST /api/athletes/upload']({}, {
+    competition_id: compId,
+    csv: 'event;bib;first_name;last_name;club;country\nKXW;101;Bob;Jones;Club;FIN'
+  });
+  assert.strictEqual(r2.added, 1);
+  assert.strictEqual(r2.errors.length, 0);
+
+  // Try to upload the same bib again in KXM — should fail with clear error
+  const r3 = await routes['POST /api/athletes/upload']({}, {
+    competition_id: compId,
+    csv: 'event;bib;first_name;last_name;club;country\nKXM;101;Charlie;Brown;Club;FIN'
+  });
+  assert.strictEqual(r3.added, 0);
+  assert(r3.errors[0]?.includes('already in use in event KXM'));
 });
