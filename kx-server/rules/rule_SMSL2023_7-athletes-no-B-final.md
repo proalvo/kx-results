@@ -24,7 +24,7 @@ Slot 3 ← TT 5                  Slot 3 ← TT 6
 FINAL
 ─────────────────
 Slot 1 ← SF1 1st
-Slot 1 ← SF2 1st
+Slot 2 ← SF2 1st
 Slot 3 ← SF1 2nd
 Slot 4 ← SF2 2nd
       │
