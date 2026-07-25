@@ -2,6 +2,8 @@
 
 File [rule_SMSL2023_3-4-athletes.json](rule_SMSL2023_3-4-athletes.json)
 
+- This is suitable for events with 3 to 4 athletes.
+
 ```
 
 TIME TRIAL (TT)
@@ -9,7 +11,7 @@ TIME TRIAL (TT)
       │
       ▼ 
 
-SEMI-FINAL 1 (SF1)              
+FINAL (F)              
 ─────────────────              
 Slot 1 ← TT 1                  
 Slot 2 ← TT 2                  
