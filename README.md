@@ -10,13 +10,14 @@ Start lists and results can be printed as PDF, and results sync easily to a publ
 
 ## Features
 
-- Open Source software - no license fee
-- Create unlimited competitions with unlimited events 
+- Create unlimited competitions with unlimited events
+- Automatic ranking and creation of next competition phase based on the progression system (that you create also by yourself).
 - Upload athletes to the events from the CSV file
+- Split time can be used in Time Trial
 - Create your own progression system (with the limitations of  the software) or use [ready made rules](https://github.com/proalvo/kx-results/tree/main/kx-server/rules).
 - Publish results in Internet in real-time (at website with *kx-web* installed, such as [wwcf.fi/kx-results](https://wwcf.fi/kx-results)
-- Split time can be used in Time Trial
 - Print result as PDF.
+- Add header and footer to PDFs.
 
 ## How to install and use the software
 
