@@ -127,6 +127,37 @@ the default for every competition. Applies to the active competition
 <div class="note" id="athleteNote"></div>
 
 
+<h2>3b. Branding (optional)</h2>
+<p class="hint">Add a banner image for the public website, and header/footer images
+for printed results and start lists. All are optional and can be added or updated later.
+Images must be PNG or JPG, max 1 MB each.</p>
+
+<form id="brandingForm">
+  <div class="row">
+    <div><label>Competition banner URL (for public website)
+      <input id="b_url" type="url" placeholder="https://example.fi/banner.png"></label></div>
+  </div>
+</form>
+<button type="submit" form="brandingForm">Save banner URL</button>
+<div class="note" id="brandingNote"></div>
+
+<div style="margin-top:1.5rem">
+  <label>PDF header image (PNG/JPG, max 1 MB)
+    <input id="pdf_header" type="file" accept="image/png,image/jpeg"></label>
+  <span id="pdf_header_name" style="color:#5a7286; font-size:0.85rem"></span>
+  <button type="button" id="pdf_header_upload">Upload header</button>
+  <button type="button" id="pdf_header_clear" style="display:none">Clear header</button>
+</div>
+
+<div style="margin-top:1rem">
+  <label>PDF footer image (PNG/JPG, max 1 MB)
+    <input id="pdf_footer" type="file" accept="image/png,image/jpeg"></label>
+  <span id="pdf_footer_name" style="color:#5a7286; font-size:0.85rem"></span>
+  <button type="button" id="pdf_footer_upload">Upload footer</button>
+  <button type="button" id="pdf_footer_clear" style="display:none">Clear footer</button>
+</div>
+<div class="note" id="brandingImageNote"></div>
+
 <h2>4. Publish to website (optional)</h2>
 <p class="note">Results can be published to the public results website so spectators
 can follow online. The website address and the organization key are configured once
@@ -412,6 +443,64 @@ $('athleteForm').onsubmit = async e => {
 };
 
 // ---------------------------------------------------------- publish to website
+// ---------------------------------------------------------- branding
+async function loadBranding() {
+  try {
+    const c = competitions.find(x => x.competition_id === activeCompetitionId);
+    if (!c) return;
+    $('b_url').value = c.banner_url ?? '';
+    $('pdf_header_name').textContent = c.pdf_header_filename ? '✓ ' + c.pdf_header_filename : '';
+    $('pdf_header_clear').style.display = c.pdf_header_filename ? 'block' : 'none';
+    $('pdf_footer_name').textContent = c.pdf_footer_filename ? '✓ ' + c.pdf_footer_filename : '';
+    $('pdf_footer_clear').style.display = c.pdf_footer_filename ? 'block' : 'none';
+  } catch (err) { note('brandingNote', err.message, false); }
+}
+
+$('brandingForm').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    await j('PATCH', '/api/competitions', {
+      competition_id: activeCompetitionId,
+      banner_url: $('b_url').value || null
+    });
+    note('brandingNote', 'Banner URL saved.', true);
+    await loadCompetitions(); await loadBranding();
+    // Trigger sync to kx-web if connected
+    try { await j('POST', '/api/web/sync-now', { competition_id: activeCompetitionId }); }
+    catch (e) { /* sync not configured yet, that's OK */ }
+  } catch (err) { note('brandingNote', err.message, false); }
+};
+
+['header', 'footer'].forEach(type => {
+  $('pdf_' + type + '_upload').onclick = async () => {
+    const file = $('pdf_' + type).files[0];
+    if (!file) return;
+    if (file.size > 1024*1024) { note('brandingImageNote', type + ' image > 1 MB', false); return; }
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      note('brandingImageNote', 'Only PNG and JPG allowed', false); return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result.split(',')[1];
+        await j('POST', `/api/competition/${activeCompetitionId}/pdf-${type}`, {
+          image: base64, filename: file.name
+        });
+        note('brandingImageNote', type + ' uploaded', true);
+        await loadCompetitions(); await loadBranding();
+      } catch (err) { note('brandingImageNote', err.message, false); }
+    };
+    reader.readAsDataURL(file);
+  };
+  $('pdf_' + type + '_clear').onclick = async () => {
+    try {
+      await j('DELETE', `/api/competition/${activeCompetitionId}/pdf-${type}`, {});
+      note('brandingImageNote', type + ' cleared', true);
+      await loadCompetitions(); await loadBranding();
+    } catch (err) { note('brandingImageNote', err.message, false); }
+  };
+});
+
 async function loadWebSection() {
   try {
     const st = await j('GET', '/api/web/settings');
@@ -480,7 +569,7 @@ new EventSource('/api/stream').onmessage = ev => {
   if (ev.data === 'app-state') location.reload();
 };
 
-(async () => { await loadRules(); await loadActiveCompetition(); await loadWebSection(); })();
+(async () => { await loadCompetitions(); await loadRules(); await loadActiveCompetition(); await loadBranding(); await loadWebSection(); })();
 </script>
 </body>
 </html>
