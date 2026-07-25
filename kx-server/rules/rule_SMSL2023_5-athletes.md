@@ -3,7 +3,7 @@
 File: [rule_SMSL2023_5-athletes.json](rule_SMSL2023_5-athletes.json)
 
 - All athletes have at least two runs
-- Best two from Time Trial goes directly to the Final
+- Best two from Time Trial advance to the Final
 
 ```
 TIME TRIAL (TT)
@@ -12,9 +12,9 @@ TIME TRIAL (TT)
       ▼
 SEMI-FINAL 1 (SF)
 ─────────────────
-TT 3  → Slot 1
-TT 4  → Slot 2
-TT 5  → RESULT 5
+Slot 1 ← TT 3
+Slot 2 ← TT 4
+Slot 3 ← TT 5
       │
       ▼
 FINAL
