@@ -1,6 +1,6 @@
 # 7 athletes, no B-final
 
-File: [rule_SMSL2023_7-athletes-no-B-final.json](rule_SMSL2023_7-athletes-no-B-final.json)
+File: [rule_SMSL2023_7-athletes_no-B-final.json](rule_SMSL2023_7-athletes_no-B-final.json)
 
 - 2 heats in Semi-Final
 - Two from each Semi-Final advance to the Final.
