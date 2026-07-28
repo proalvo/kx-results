@@ -50,10 +50,15 @@ Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 
 ## Roadmap
 
-- Publish results to the public website -  "kx-web" is a separate application to publish results.
-- Events are listen in alphabetical order by code (e.g. KXM is 1st, KXN is 2nd). It could be something different also.
-- Provide results as CSV file
+- Events are listed in alphabetical order by code (e.g. KXM is 1st, KXN is 2nd). Results manager should set the order of the events.
+- "white board" for athletes to see all results and progression system.
+- print all results to one document - not they printed per each competition phase
+- possible to time schedule of the competiion
+- "review" state for faults in public views.
+- export results to CSV file
 
 ## Knows bugs or features that require improvement
 
-- Improvement: At the moment bib shall be unique in the competition. It should be possible to have the same bib in multiple events.
+- If an event is deleted, it is not deleted from the kx-web.
+
+
