@@ -56,6 +56,9 @@ Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 - possible to time schedule of the competiion
 - "review" state for faults in public views.
 - export results to CSV file
+- CAPITALISE surname
+- first_name_initial should be without dot (.)
+  
 
 ## Knows bugs or features that require improvement
 
