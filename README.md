@@ -18,6 +18,7 @@ Start lists and results can be printed as PDF, and results sync easily to a publ
 - Publish results in Internet in real-time (at website with *kx-web* installed, such as [wwcf.fi/kx-results](https://wwcf.fi/kx-results)
 - Print result as PDF.
 - Add header and footer to PDFs.
+- Leaderboard for on site competition information 
 
 ## How to install and use the software
 
@@ -47,6 +48,24 @@ Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 - *country*; 3 letter country code (e.g. FIN)
 - *icf_id*; (optional) this is ICF's ID for athlete, which is provided by [Sports Data Platform](https://www.canoeicf.com/sports-data-platform)
 - *nf_id*; (optional) this is national ID for the athlete, e.g. Sportti ID in Finland. 
+
+## Leaderboard
+
+Leaderboard provides event status in one screen. Application provide a carusel to show all event one after another. Use 24" monitor or bigger and set the browser to full screen (If you are using the Chrome, press F11).
+
+URL:
+```
+http://{ip-address}:{port}/leaderboard
+or
+http://{ip-address}:{port}/leaderboard?interval={time in seconds}
+```
+For example:
+```
+http://localhost:3000/leaderboard
+```
+
+You can use second computer to show the leaderboard, then use an IP address of the your computer where you are running kx-results. `ifocnfig` (Linux) and `ipconfig` (Windows) commands can be used to find out the IP address of the kx-results computer.
+
 
 ## Roadmap
 
