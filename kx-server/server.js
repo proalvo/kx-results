@@ -1,14 +1,7 @@
-// server.js — KX-Results server (zero-dependency skeleton).
+// server.js — KX-Results server with 24" Leaderboard (zero-dependency skeleton).
 //
 // Built on node:http + node:sqlite so it runs with nothing but Node >= 22.5:
 //     node server.js [dbfile] [port]
-//
-// LIVE UPDATES: this skeleton uses Server-Sent Events (GET /api/stream) as
-// the change-notification channel — the "notify" half of the notify+fetch
-// pattern. When you later run `npm install socket.io` on a networked
-// machine, replace broadcast() with io.emit('change', topic); everything
-// else (all fetching) stays exactly as it is. Gate Judge messaging will be
-// added on the same channel in the next step.
 
 'use strict';
 const http = require('node:http');
@@ -17,6 +10,8 @@ const path = require('node:path');
 const { open } = require('./lib/db');
 const { api } = require('./lib/api');
 const { attachWebPublisher } = require('./lib/publisher-wire');
+const leaderboardAPI = require('./lib/leaderboard-api');
+
 
 const DB_FILE = process.argv[2] ?? path.join(__dirname, 'kx.db');
 const PORT = +(process.argv[3] ?? 3000);
@@ -33,11 +28,30 @@ function notify(topic) {
   web.onNotify(topic);                       // KX-Web publisher (no-op until registered)
 }
 const routes = api(db, notify);
+const leaderRoutes = leaderboardAPI(db);     // Add leaderboard routes
+Object.assign(routes, leaderRoutes);         // Merge leaderboard routes into main routes
 const web = attachWebPublisher(db, routes);  // adds /api/web/* routes
 
 // --- http -------------------------------------------------------------------
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // Special handling for leaderboard HTML (GET /leaderboard)
+  if (req.method === 'GET' && url.pathname === '/leaderboard') {
+    const handler = routes['GET /leaderboard'];
+    if (handler) {
+      try {
+        const result = await handler({});
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(result.html);
+        return;
+      } catch (e) {
+        res.writeHead(500);
+        res.end('Error: ' + e.message);
+        return;
+      }
+    }
+  }
 
   // SSE stream: clients listen here and re-fetch on any message
   if (req.method === 'GET' && url.pathname === '/api/stream') {
@@ -49,7 +63,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // JSON API
+  // JSON API (including leaderboard endpoints)
   const handler = routes[`${req.method} ${url.pathname}`];
   if (handler) {
     try {
@@ -83,7 +97,8 @@ const server = http.createServer(async (req, res) => {
 
 if (require.main === module) {
   server.listen(PORT, () =>
-    console.log(`KX-Results server: http://localhost:${PORT}  (db: ${DB_FILE})`));
+    console.log(`🚀 KX-Results server: http://localhost:${PORT}  (db: ${DB_FILE})`
+              + `\n📊 Leaderboard: http://localhost:${PORT}/leaderboard`));
 }
 
 module.exports = { server, db };
