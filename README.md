@@ -64,7 +64,7 @@ For example:
 http://localhost:3000/leaderboard
 ```
 
-You can use second computer to show the leaderboard, then use an IP address of the your computer where you are running kx-results. `ifocnfig` (Linux) and `ipconfig` (Windows) commands can be used to find out the IP address of the kx-results computer.
+You can use second computer to show the leaderboard, then use an IP address of the your computer where you are running kx-results. `ifconfig` (Linux) and `ipconfig` (Windows) commands can be used to find out the IP address of the kx-results computer.
 
 
 ## Roadmap
