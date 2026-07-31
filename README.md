@@ -66,6 +66,11 @@ http://localhost:3000/leaderboard
 
 You can use second computer to show the leaderboard, then use an IP address of the your computer where you are running kx-results. `ifconfig` (Linux) and `ipconfig` (Windows) commands can be used to find out the IP address of the kx-results computer.
 
+## Integrations
+
+kx-results has integration to [startiin.fi](startiin.fi) to import athletes. Starttiin.fi is system by [Finnish Rowing and Canoing Federation](https://melontajasoutuliitto.fi).
+
+- [Instructions for starttiin.fi (in Finnish)](starttiin.md)
 
 ## Roadmap
 
