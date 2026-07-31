@@ -86,6 +86,7 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 
 ## Knows bugs or features that require improvement
 
-- If an event is deleted, it is not deleted from the kx-web.
+- Major: If an event is deleted, it is not deleted from the kx-web.
+- Minor: Date format should be according to location (country) of the company, now weekdays start from Sunday and date/time format is 7/31/2026 8:42:11 PM.
 
 
