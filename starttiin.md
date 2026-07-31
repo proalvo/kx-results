@@ -18,4 +18,4 @@ Tee seuaavasti:
   - Syötä raceId ja API-avain, ja paina **UPLOAD**
   - Tarkasta lista ja paina **SAVE**
     
-![Koodin lisääminen]([/path/to/image.png](https://github.com/proalvo/kx-results/blob/main/images/starttiin-event-code.png) "Code")
+![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-event-code.png Code)
