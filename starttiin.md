@@ -1,8 +1,8 @@
 # Lähtölistojen haku starttiin.fi palvelusta
 
-Lähtölistat on mahdollista hakea kx-resultsiin suoraan startiin.fi palvelusta.
+Lähtölistat on mahdollista hakea *kx-results*iin suoraan starttiin.fi palvelusta.
 
-Tee seuaavasti:
+Tee seuraavasti:
 
 ## 1.Tee lähtölistat
 
@@ -29,8 +29,9 @@ Tee *kx-reusults*issa vastaavat sarjat kuin lähtölistassa
 
 ## 4. Lataa lähtölistat
 
-Mene *kx-results*:issa kohtaan **3 Athletes**, ja valitse **Upload athletes** — import start lists from starttiin.fi
+Mene *kx-results*sissa kohtaan **3. Athletes**, ja valitse **Upload athletes** — *import start lists from starttiin.fi*
   - Syötä raceId ja API-avain, ja paina **UPLOAD**
   - Tarkasta lista ja paina **SAVE**
+  - Nyt sinulla on kilpailijat ladattuna. Voit tarkastaa ne *Setup* sivulla.
 
 ![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-import.png "Lähtölistan lataaminen")
