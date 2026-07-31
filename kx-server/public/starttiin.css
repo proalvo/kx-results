@@ -1,0 +1,33 @@
+/* starttiin.css — styles for the starttiin.fi import page.
+   Follows the visual style of setup.html (same fonts, colors, table and
+   form treatment), kept in a separate file per the specification. */
+
+body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #16324a; max-width: 900px; }
+h1 { font-size: 1.2rem; }
+h2 { font-size: 1.05rem; margin-top: 2.2rem; border-bottom: 2px solid #e8eff5; padding-bottom: .3rem; }
+nav { margin-bottom: 1rem; }
+nav a { margin-right: 1rem; }
+select, input, textarea, button { font: inherit; padding: .3rem .5rem; margin: .15rem 0; }
+button.secondary { background: #7a2e2e; color: white; border: none; border-radius: 4px; cursor: pointer; }
+button.secondary:disabled { background: #cdd9e3; color: #5a7286; cursor: not-allowed; }
+input[type=text], input[type=password] { width: 100%; box-sizing: border-box; }
+table { border-collapse: collapse; margin: .6rem 0 1rem; width: 100%; }
+th, td { border: 1px solid #b7c6d4; padding: .3rem .55rem; text-align: left; font-size: .92em; }
+th { background: #e8eff5; }
+form { background: #f7fafc; border: 1px solid #dbe6ee; border-radius: 6px; padding: .8rem 1rem; margin-bottom: .8rem; }
+form .row { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: .3rem; }
+form .row > div { flex: 1; min-width: 140px; }
+label { display: block; font-size: .8em; color: #46647a; margin-bottom: .1rem; }
+.hint { color: #5a7286; font-size: .9em; }
+.note { white-space: pre-line; margin: .4rem 0; }
+.note.ok { color: #256029; }
+.note.err { color: #7a2e2e; }
+.badge { display: inline-block; padding: .05rem .5rem; border-radius: 3px; font-size: .8em; }
+.badge.fit { background: #d8f0dc; color: #256029; }
+.badge.nofit { background: #ffe2a8; color: #7a4f00; }
+
+/* preview-specific */
+tr.warn td { background: #fff3e0; }
+td.rowwarn { color: #7a4f00; font-size: .85em; }
+#saveBtn { background: #256029; color: white; border: none; border-radius: 4px; cursor: pointer; }
+#saveBtn:disabled { background: #cdd9e3; color: #5a7286; cursor: not-allowed; }

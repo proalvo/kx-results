@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Upload athletes from starttiin.fi</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/starttiin.css">
+</head>
+<body>
+<h1>KX-Results — Upload athletes from starttiin.fi</h1>
+<nav style="margin-bottom:.4rem"><a href="/start.html">Start Here</a> | <a href="/">Phase page (Chief of Scoring)</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
+<nav style="margin-bottom:1rem; font-size:.9rem; color:#5a7286">Active competition: <strong id="navCompName" style="color:#16324a">—</strong> (<a href="/start.html">switch</a>)</nav>
+
+<h2>1. Fetch start lists</h2>
+<p class="hint">Fetches start lists from starttiin.fi for the active competition.
+Each start list's name must match an existing event code (e.g. <code>KXM</code>) —
+create the events on the <a href="/setup.html">Setup page</a> first.
+Nothing is saved until you review the preview below and press <b>Save</b>.</p>
+
+<p class="hint">You find raceID for your compeition from the link of starttin.fi: https://www.starttiin.fi/edit-race/<span style="color: red;">{raceId}</span>/api-access</p>
+
+<form id="fetchForm">
+  <div class="row">
+    <div><label>raceId</label><input required id="raceId" type="text" placeholder=""></div>
+    <div><label>API-avain</label><input required id="apiKey" type="text" autocomplete="off" placeholder="sk_live_…"></div>
+    <div style="align-self:end; flex:0"><button type="submit" id="fetchBtn">Upload</button></div>
+  </div>
+</form>
+<div class="note" id="fetchNote"></div>
+
+<h2>2. Preview</h2>
+<p class="hint" id="previewHint">Fetch a start list above to see the preview here.</p>
+<div id="preview"></div>
+<button type="button" id="saveBtn" disabled>Save</button>
+<div class="note" id="saveNote"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const j = (m, url, body) => fetch(url, { method: m,
+  headers: { 'Content-Type': 'application/json' },
+  body: body ? JSON.stringify(body) : undefined }).then(async r => {
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    return d;
+  });
+const note = (id, msg, ok) => {
+  const el = $(id); el.textContent = msg; el.className = 'note ' + (ok ? 'ok' : 'err');
+};
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+let activeCompetitionId = null;
+let fetchedLists = null;               // normalized lists echoed back on Save
+
+async function loadActiveCompetition() {
+  const state = await j('GET', '/api/app-state');
+  if (!state.active_competition_id) { location.href = '/start.html'; return; }
+  activeCompetitionId = state.active_competition_id;
+  $('navCompName').textContent = state.competition_name;
+}
+
+function renderPreview(p) {
+  $('previewHint').style.display = 'none';
+  $('preview').innerHTML = p.start_lists.map(list => {
+    const badge = list.event_exists
+      ? '<span class="badge fit">event exists</span>'
+      : '<span class="badge nofit">unknown event</span>';
+    const listWarnings = list.warnings.map(w =>
+      `<p class="note err">⚠ ${esc(w)}</p>`).join('');
+    const rows = list.competitors.map(c => `
+      <tr class="${c.warnings.length ? 'warn' : ''}">
+        <td>${esc(c.start_order)}</td><td>${esc(c.bib)}</td>
+        <td>${esc(c.first_name)}</td><td>${esc(c.last_name)}</td>
+        <td>${esc(c.club ?? '')}</td><td></td>
+        <td class="rowwarn">${esc(c.warnings.join(' '))}</td>
+      </tr>`).join('');
+    return `<h2>${esc(list.event_code)} ${badge}
+        <span class="hint" style="font-weight:normal">— ${list.competitors.length} athlete(s)</span></h2>
+      ${listWarnings}
+      <table><thead>
+        <tr><th>Start (TT slot)</th><th>Bib</th><th>First name</th><th>Last name</th>
+            <th>Club</th><th>Country</th><th></th></tr>
+      </thead><tbody>${rows}</tbody></table>`;
+  }).join('');
+  $('saveBtn').disabled = !p.can_save;
+  if (!p.can_save) {
+    note('saveNote', 'Fix the warnings above before saving — nothing has been saved.', false);
+  } else {
+    note('saveNote', 'Review the preview, then press Save to store the athletes.', true);
+  }
+}
+
+$('fetchForm').onsubmit = async e => {
+  e.preventDefault();
+  fetchedLists = null;
+  $('saveBtn').disabled = true;
+  $('preview').innerHTML = '';
+  $('saveNote').textContent = '';
+  note('fetchNote', 'Fetching from starttiin.fi…', true);
+  try {
+    const p = await j('POST', '/api/starttiin/fetch', {
+      competition_id: activeCompetitionId,
+      raceId: $('raceId').value,
+      apiKey: $('apiKey').value,
+    });
+    fetchedLists = p.lists;
+    const n = p.start_lists.reduce((s, l) => s + l.competitors.length, 0);
+    note('fetchNote', `Fetched ${p.start_lists.length} start list(s), ${n} athlete(s). Nothing saved yet.`, true);
+    renderPreview(p);
+  } catch (err) { note('fetchNote', err.message, false); }
+};
+
+$('saveBtn').onclick = async () => {
+  if (!fetchedLists) return;
+  $('saveBtn').disabled = true;
+  try {
+    const r = await j('POST', '/api/starttiin/save', {
+      competition_id: activeCompetitionId,
+      lists: fetchedLists,
+    });
+    note('saveNote', `${r.added} athlete(s) saved. See them on the Setup page (section 3. Athletes).`, true);
+    fetchedLists = null;
+  } catch (err) {
+    note('saveNote', err.message, false);
+    $('saveBtn').disabled = false;
+  }
+};
+
+// Reload the whole page if the active competition changes in another tab —
+// same approach as setup.html, avoids partial-state bugs.
+new EventSource('/api/stream').onmessage = ev => {
+  if (ev.data === 'app-state') location.reload();
+};
+
+loadActiveCompetition();
+</script>
+</body>
+</html>
