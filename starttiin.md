@@ -17,7 +17,7 @@ Tee lähtölistat starttiin.fi:ssä.
 ## 2. Hae koodit 
 
 Katso kilpailun raceId ja API-avain startiin.fi:n valikon kohdasta API-AVAIN
-  - raceId on palvelun linkissä oleva kryptinen merkkisarja: www.starttiin.fi/edit-race/`00e110bi3fb`/starts
+  - raceId on palvelun linkissä oleva kryptinen merkkisarja: www. starttiin. fi /edit-race/`00e110bi3fb`/starts
 
 ## 3.Perusta kilpailusarjat 
 
