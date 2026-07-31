@@ -10,6 +10,7 @@ const path = require('node:path');
 const { open } = require('./lib/db');
 const { api } = require('./lib/api');
 const { attachWebPublisher } = require('./lib/publisher-wire');
+const { attachStarttiin } = require('./lib/starttiin');
 const leaderboardAPI = require('./lib/leaderboard-api');
 
 
@@ -31,6 +32,7 @@ const routes = api(db, notify);
 const leaderRoutes = leaderboardAPI(db);     // Add leaderboard routes
 Object.assign(routes, leaderRoutes);         // Merge leaderboard routes into main routes
 const web = attachWebPublisher(db, routes);  // adds /api/web/* routes
+attachStarttiin(db, routes, notify);         // adds /api/starttiin/* routes
 
 // --- http -------------------------------------------------------------------
 const server = http.createServer(async (req, res) => {
