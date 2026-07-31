@@ -68,7 +68,7 @@ You can use second computer to show the leaderboard, then use an IP address of t
 
 ## Integrations
 
-kx-results has integration to [startiin.fi](startiin.fi) to import athletes. Starttiin.fi is system by [Finnish Rowing and Canoing Federation](https://melontajasoutuliitto.fi).
+kx-results has integration to [startiin.fi](https://startiin.fi) to import athletes. Starttiin.fi is system by [Finnish Rowing and Canoing Federation](https://melontajasoutuliitto.fi).
 
 - [Instructions for starttiin.fi (in Finnish)](starttiin.md)
 
