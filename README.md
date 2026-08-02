@@ -86,7 +86,7 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 
 ## Knows bugs or features that require improvement
 
--  ~~ Major: If an event is deleted, it is not deleted from the kx-web. ~~
+-  ~~Major: If an event is deleted, it is not deleted from the kx-web.~~
 - Minor: Date format should be according to location (country) of the competition, now weekdays start from Sunday and date/time format is 7/31/2026 8:42:11 PM.
 - Medium: Occationally the software can be slow - it may take several seconds when you click the menu item. Good things is that it always works, but it can be annoying or confusing when you do not get immediate respond. Reason for the slow actions is unknown at the moment.
 
