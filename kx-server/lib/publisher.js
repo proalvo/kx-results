@@ -129,6 +129,46 @@ class Publisher extends EventEmitter {
     return this._send(`unpublish:${eventCode ?? 'all'}:${phase ?? ''}`, '/api/v1/unpublish', body);
   }
 
+  /**
+   * An event was DELETED locally. Forget every push targeting it: a pending
+   * debounce would throw on build ("Event not found"), and a queued retry
+   * would either resurrect the phase on the website after the competition
+   * snapshot pruned it, or bounce forever on 404 -> needs-competition-sync.
+   * The deletion itself travels in the next competition snapshot, which no
+   * longer lists the event.
+   * @param {string} eventId
+   */
+  forgetEvent(eventId) {
+    const prefix = `phase:${eventId}:`;
+    for (const [key, p] of [...this.pending]) {
+      if (key.startsWith(prefix)) {
+        if (p.timer) clearTimeout(p.timer);
+        this.pending.delete(key);
+      }
+    }
+    for (const key of [...this.queue.keys()]) {
+      if (key.startsWith(prefix)) this.queue.delete(key);
+    }
+    for (const key of [...this.lastAckedHash.keys()]) {
+      if (key.startsWith(prefix)) this.lastAckedHash.delete(key);
+    }
+  }
+
+  /**
+   * Ask the website to drop one event immediately, instead of waiting for the
+   * next competition snapshot. Optional: kx-web prunes missing events on every
+   * /api/v1/competition and /api/v1/full push anyway, so a failure here is not
+   * an error worth surfacing. Requires the /api/v1/event/delete route.
+   * @param {string} eventCode
+   */
+  async deleteEvent(eventCode) {
+    return this._send(
+      `event-delete:${eventCode}`,
+      '/api/v1/event/delete',
+      JSON.stringify({ event_code: eventCode })
+    );
+  }
+
   /** For the Chief of Scoring UI: sync status summary. */
   status() {
     return {

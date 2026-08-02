@@ -10,6 +10,7 @@ const { uuid } = require('./db');
 const { rankHeat, rankTimeTrial } = require('./ranking');
 const { importRuleJson, applyProgression, compileOfficialResult, checkRuleFits } = require('./progression');
 const { computeTTResultTimeMs, splitTimingEnabled } = require('./tt-timing');
+const { buildCompetitionResults } = require('./competition-results');
 
 // Turns a raw "UNIQUE constraint failed: table.column" into a message a
 // Chief of Scoring can actually act on, instead of the raw SQLite string.
@@ -182,8 +183,14 @@ function api(db, notify) {
         `Cannot delete this event — it has ${count} athlete(s) uploaded. ` +
         `Remove them individually first, or don't delete the event.`);
     }
+    // Keep the code before deleting it: the website identifies events by
+    // event_code, and the row is gone by the time notify() runs.
+    const ev = db.prepare(
+      'SELECT event_code FROM event WHERE event_id = ?').get(body.event_id);
     db.prepare('DELETE FROM event WHERE event_id = ?').run(body.event_id);
-    notify('events');
+    // The detail lets the KX-Web publisher cancel pushes queued for this event
+    // before it sends the competition snapshot that removes it from the site.
+    notify('events', { deletedEventId: body.event_id, deletedEventCode: ev?.event_code });
     return { ok: true };
   });
 
@@ -326,6 +333,61 @@ function api(db, notify) {
       .run(q.id);
     notify('competitions');
     return { ok: true };
+  });
+
+  // Read side of the PDF branding above, for the print pages.
+  //
+  // Returned as data: URLs rather than as image responses because server.js
+  // sends every route's return value through JSON.stringify — a binary body
+  // would need a change there. Uploads are capped at 1 MB (see the POST
+  // routes above), so the base64 inflation is bounded and a sheet's branding
+  // arrives in a single fetch.
+  // SVG is worth accepting here specifically because these images end up in
+  // a PDF: vector art has no resolution to get wrong and stays sharp at any
+  // zoom, for a fraction of the bytes of a 4x raster. Served from a data:
+  // URL inside an <img>, so it cannot pull in external resources or run
+  // script — the same sandbox any uploaded raster gets.
+  const mimeOf = (filename) => {
+    const name = filename ?? '';
+    if (/\.jpe?g$/i.test(name)) return 'image/jpeg';
+    if (/\.svg$/i.test(name)) return 'image/svg+xml';
+    return 'image/png';
+  };
+
+  on('GET', '/api/competition/:id/pdf-branding', q => {
+    const row = db.prepare(
+      `SELECT pdf_header_image, pdf_header_filename,
+              pdf_footer_image, pdf_footer_filename
+         FROM competition WHERE competition_id = ?`).get(q.id);
+    if (!row) throw new Error('Competition not found');
+    const asDataUrl = (buf, name) => buf
+      ? `data:${mimeOf(name)};base64,${Buffer.from(buf).toString('base64')}`
+      : null;
+    return {
+      header: asDataUrl(row.pdf_header_image, row.pdf_header_filename),
+      header_filename: row.pdf_header_filename ?? null,
+      footer: asDataUrl(row.pdf_footer_image, row.pdf_footer_filename),
+      footer_filename: row.pdf_footer_filename ?? null,
+    };
+  });
+
+  // ------------------------------------------- overall competition results
+  // Every event of a competition with its final classification, for the
+  // printable overall results sheet (public/print-competition.html). The
+  // Phase page's print.html covers one heat at a time; this is the document
+  // handed to the jury and pinned to the notice board at the end of the day.
+  //
+  // Read-only: it reports the official classification the Chief has already
+  // compiled with "Compile Official Result", and falls back to a clearly
+  // flagged provisional order for events that are unfinished.
+  //   event_ids            optional, comma-separated — print a subset
+  //   include_provisional  '0' to leave unfinished events unclassified
+  on('GET', '/api/competition-results', q => {
+    if (!q.competition_id) throw new Error('competition_id is required');
+    return buildCompetitionResults(db, q.competition_id, {
+      eventIds: q.event_ids ? String(q.event_ids).split(',').filter(Boolean) : undefined,
+      includeProvisional: q.include_provisional !== '0',
+    });
   });
 
 

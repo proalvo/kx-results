@@ -100,11 +100,23 @@ function attachWebPublisher(db, routes) {
   // ------------------------------------------------------------------
   // notify() hook — call from server.js on every topic
   // ------------------------------------------------------------------
-  function onNotify(topic) {
+  /**
+   * @param {string} topic
+   * @param {{deletedEventId?: string, deletedEventCode?: string}} [detail]
+   *        set by DELETE /api/events so queued pushes for a now-deleted event
+   *        can be dropped before the competition snapshot removes it upstream.
+   */
+  function onNotify(topic, detail) {
     if (!['results', 'athletes', 'events', 'competitions'].includes(topic)) return;
     for (const competitionId of configuredCompetitions()) {
       const state = ensurePublisher(competitionId);
       if (!state) continue;
+
+      // Do this first: a pending phase push for the deleted event would throw
+      // on build, and a queued one would fight the pruning on the website.
+      if (detail?.deletedEventId) {
+        state.publisher.forgetEvent(detail.deletedEventId);
+      }
 
       if (topic === 'competitions' || topic === 'events') {
         state.publisher.publishCompetition();
@@ -229,7 +241,22 @@ function attachWebPublisher(db, routes) {
     };
   });
 
-  return { onNotify, ensurePublisher };
+  /**
+   * Optional: remove one event from the website NOW instead of waiting for the
+   * debounced competition snapshot. Not called automatically — kx-web prunes
+   * events missing from every /api/v1/competition and /api/v1/full push, so
+   * this is a latency optimisation, never the thing correctness rests on.
+   * Requires the /api/v1/event/delete route on kx-web.
+   */
+  function deleteEventOnWeb(competitionId, eventCode) {
+    const state = ensurePublisher(competitionId);
+    if (!state || !eventCode) return;
+    state.publisher.deleteEvent(eventCode).catch(() => {
+      /* the next snapshot prunes it anyway */
+    });
+  }
+
+  return { onNotify, ensurePublisher, deleteEventOnWeb };
 }
 
 module.exports = { attachWebPublisher };
