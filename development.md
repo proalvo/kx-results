@@ -13,7 +13,8 @@ find .  \( -name "*.js" -o -name "*.json" -o -name "*.html" -o -name "*.sql" \) 
 **kx-web**
 ```
 cd {your directory for the kx-web e.g. /var/www}
-touch kx-web-codebase.txt
+sudo touch kx-web-codebase.txt
+sudo chmod 666 kx-web-codebase.txt
 find html/kx-results \( -name "*.php" \) -print -exec sh -c 'echo "=== FILE: $1 ==="; cat "$1"; echo' _ {} \; > kx-web-codebase.txt
 find kx-web-app \( -name "*.php" -o -name "*.sql" \) -print -exec sh -c 'echo "=== FILE: $1 ==="; cat "$1"; echo' _ {} \; >> kx-web-codebase.txt
 ```
