@@ -75,10 +75,8 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 ## Roadmap
 
 - Events are listed in alphabetical order by code (e.g. KXM is 1st, KXN is 2nd). Results manager should set the order of the events.
-- "white board" for athletes to see all results and progression system.
-- print all results to one document - not they printed per each competition phase
 - possible to time schedule of the competiion
-- "review" state for faults in public views.
+- "review" state for faults in public views/streaming.
 - export results to CSV file
 - CAPITALISE surname
 - first_name_initial should be without dot (.)
