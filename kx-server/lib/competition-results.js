@@ -1,3 +1,4 @@
+
 // lib/competition-results.js — overall competition results (all events).
 //
 // Feeds the "Print competition results" PDF (public/print-competition.html).
@@ -237,9 +238,12 @@ function buildCompetitionResults(db, competitionId, opts = {}) {
   ).get(competitionId);
   if (!competition) throw new Error(`Competition not found: ${competitionId}`);
 
+  // Organiser's running order (see event.sort_order): the printed overall
+  // results sheet is pinned to the notice board next to the schedule, so
+  // the events should appear in the same order they were actually run.
   let events = db.prepare(
-    `SELECT event_id, event_code, event_name, gates, rule_id
-       FROM event WHERE competition_id = ? ORDER BY event_code`
+    `SELECT event_id, event_code, event_name, gates, rule_id, sort_order
+       FROM event WHERE competition_id = ? ORDER BY sort_order, event_code`
   ).all(competitionId);
 
   if (Array.isArray(opts.eventIds) && opts.eventIds.length) {
@@ -269,3 +273,4 @@ module.exports = {
   PHASE_LABELS,
   PHASE_DEPTH,
 };
+

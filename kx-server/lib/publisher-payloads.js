@@ -1,3 +1,4 @@
+
 'use strict';
 
 // lib/publisher-payloads.js — maps THIS kx-server's SQLite schema to the
@@ -53,9 +54,9 @@ function buildCompetitionSync(db, competitionId) {
   if (!c) throw new Error(`Competition not found: ${competitionId}`);
 
   const events = db.prepare(
-    `SELECT event_id, event_code, event_name, gates
+    `SELECT event_id, event_code, event_name, gates, sort_order
        FROM event WHERE competition_id = ?
-       ORDER BY event_code`
+       ORDER BY sort_order, event_code`
   ).all(competitionId);
 
   return {
@@ -74,6 +75,11 @@ function buildCompetitionSync(db, competitionId) {
       event_code: e.event_code,
       event_name: e.event_name,
       gates: e.gates,
+      // Position in the organiser's running order. Sent as a dense 0-based
+      // index rather than the raw event.sort_order so the website always
+      // receives a clean 0,1,2… sequence regardless of any gaps or ties
+      // left locally (all-zero on a competition that was never reordered).
+      // The ORDER BY above is what actually carries the organiser's intent.
       sort_order: i
     }))
   };
@@ -222,3 +228,4 @@ module.exports = {
   GATE_FLT,
   GATE_RAL
 };
+

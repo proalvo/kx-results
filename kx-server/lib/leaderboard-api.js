@@ -1,3 +1,4 @@
+
 // lib/leaderboard-api.js
 // Leaderboard for kx-server — implements leaderboard-specification.md
 //
@@ -203,8 +204,8 @@ module.exports = function leaderboardAPI(db) {
 
       if (!q.event_id) {
         const events = db.prepare(
-          `SELECT event_id, event_code, event_name, rule_id
-             FROM event WHERE competition_id = ? ORDER BY event_code`
+          `SELECT event_id, event_code, event_name, rule_id, sort_order
+             FROM event WHERE competition_id = ? ORDER BY sort_order, event_code`
         ).all(competition.competition_id);
         return {
           competition: {
@@ -318,7 +319,7 @@ function leaderboardHTML() {
 
   // Rotation interval per spec: 20 / 30 / 50 s, selectable via ?interval=
   var p  = new URLSearchParams(location.search).get('interval');
-  var iv = (p === '5' || p === '20' || p === '20' || p === '30' || p === '50') ? +p : 30;
+  var iv = (p === '5' || p === '20' || p === '30' || p === '40' || p === '50') ? +p : 30;
 
   var events = [], idx = 0, competitionName = '';
 
@@ -430,3 +431,4 @@ function leaderboardHTML() {
 </body>
 </html>`;
 }
+
