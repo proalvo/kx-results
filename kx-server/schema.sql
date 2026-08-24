@@ -51,10 +51,38 @@ CREATE TABLE competition (
                                                        -- on that shared clock (see lib/tt-timing.js).
                                                        -- Must be set together with the interval
                                                        -- above for the feature to activate.
+    tt_continuous_clock  INTEGER NOT NULL DEFAULT 0
+                     CHECK (tt_continuous_clock IN (0,1)),
+                                                       -- Split-time TT timing: when 1, ONE stopwatch
+                                                       -- runs across the whole session instead of
+                                                       -- being restarted for each event. The time
+                                                       -- shift above is then the lead-in before the
+                                                       -- first athlete of the FIRST event only, and
+                                                       -- later events' slots carry on counting from
+                                                       -- where the previous event stopped:
+                                                       --   start_offset = tt_time_shift_ms
+                                                       --     + (prior_slots + N - 1) * tt_start_interval_ms
+                                                       -- where prior_slots is the total number of TT
+                                                       -- start slots in the events running before
+                                                       -- this one (event.sort_order, then
+                                                       -- event_code). So with a 60s interval, an
+                                                       -- 8-athlete first event and a 5min shift, the
+                                                       -- second event's slot 1 starts at 13:00 on the
+                                                       -- shared clock. 0 (the default) keeps the
+                                                       -- original behaviour: the clock is restarted
+                                                       -- per event, so every event's slot 1 starts at
+                                                       -- the time shift. Ignored entirely when
+                                                       -- split-time timing is off.
+                                                       -- See lib/tt-timing.js.
     active_event_id  TEXT,                             -- which event is currently "live"
                                                        -- (drives Gate Judge + streaming pages);
                                                        -- FK added via trigger-free soft reference
                                                        -- to avoid circular FK with event table
+    banner_url       VARCHAR(500),                     -- optional: public URL for kx-web banner
+    pdf_header_image BLOB,                             -- optional: PNG/JPG image bytes for PDF header
+    pdf_header_filename TEXT,                          -- original filename (for reference)
+    pdf_footer_image BLOB,                             -- optional: PNG/JPG image bytes for PDF footer
+    pdf_footer_filename TEXT,                          -- original filename
     created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -145,6 +173,22 @@ CREATE TABLE event (
     event_name     TEXT NOT NULL,                      -- e.g. 'Kayak Cross Men'
     gates          INTEGER NOT NULL CHECK (gates BETWEEN 1 AND 8),
     rule_id        TEXT REFERENCES progression_rule(rule_id),   -- progression system in use
+    sort_order     INTEGER NOT NULL DEFAULT 0,         -- running order of the events within the
+                                                       -- competition, as the organiser wants them
+                                                       -- listed and run (ICF Rule 4.2: the schedule
+                                                       -- / order of events is the organiser's, and
+                                                       -- alphabetical event_code is rarely it —
+                                                       -- e.g. K1M heats before K1W finals).
+                                                       -- Drives every event list in the UI, the
+                                                       -- printed overall results, and the sort_order
+                                                       -- pushed to the public website.
+                                                       -- NOT unique: ties are broken by event_code,
+                                                       -- so a competition whose events all still
+                                                       -- have the default 0 keeps the old
+                                                       -- alphabetical behaviour exactly.
+                                                       -- Assigned MAX+1 on insert (new events land
+                                                       -- at the end); renumbered 1..N by
+                                                       -- POST /api/events/reorder.
     current_phase  TEXT CHECK (current_phase IN ('TT','Q','RQ','QF','SF','F','RESULT')),
                                                        -- currently ACTIVE phase (live state),
                                                        -- not "the" phase of the event
@@ -392,3 +436,5 @@ BEGIN
     UPDATE app_state SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
     WHERE state_key = NEW.state_key;
 END;
+
+

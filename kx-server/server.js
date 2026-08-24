@@ -24,9 +24,12 @@ const db = open(DB_FILE);
 
 // --- change notification (SSE) ---------------------------------------------
 const sseClients = new Set();
-function notify(topic) {
+// `detail` is optional extra context for the KX-Web publisher (currently
+// { deletedEventId, deletedEventCode } from DELETE /api/events). The SSE
+// message stays a bare topic string, so browser pages are unaffected.
+function notify(topic, detail) {
   for (const res of sseClients) res.write(`data: ${topic}\n\n`);
-  web.onNotify(topic);                       // KX-Web publisher (no-op until registered)
+  web.onNotify(topic, detail);               // KX-Web publisher (no-op until registered)
 }
 const routes = api(db, notify);
 const leaderRoutes = leaderboardAPI(db);     // Add leaderboard routes
@@ -35,6 +38,30 @@ const web = attachWebPublisher(db, routes);  // adds /api/web/* routes
 attachStarttiin(db, routes, notify);         // adds /api/starttiin/* routes
 
 // --- http -------------------------------------------------------------------
+// Match a request against the routes registered with ':param' segments.
+// Only reached when no exact-pathname route exists, so the common case
+// stays a single hash lookup. Segment counts must agree and every literal
+// segment must match; ':name' captures one segment.
+function matchParamRoute(table, method, pathname) {
+  const want = pathname.split('/');
+  for (const key of Object.keys(table)) {
+    const [m, pattern] = key.split(' ');
+    if (m !== method || !pattern.includes('/:')) continue;
+    const parts = pattern.split('/');
+    if (parts.length !== want.length) continue;
+    const params = {};
+    let ok = true;
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].startsWith(':')) {
+        if (!want[i]) { ok = false; break; }
+        params[parts[i].slice(1)] = decodeURIComponent(want[i]);
+      } else if (parts[i] !== want[i]) { ok = false; break; }
+    }
+    if (ok) return { handler: table[key], params };
+  }
+  return null;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -66,7 +93,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // JSON API (including leaderboard endpoints)
-  const handler = routes[`${req.method} ${url.pathname}`];
+  // Exact pathname first; failing that, try the routes registered with
+  // path parameters (e.g. 'POST /api/competition/:id/pdf-header'). Without
+  // this second step those routes are unreachable: they were only ever
+  // looked up by literal string, so ':id' never matched a real uuid and
+  // setup.html's logo upload answered 404. Matched segments are merged
+  // into the query object, so a handler still just reads q.id.
+  let handler = routes[`${req.method} ${url.pathname}`];
+  let pathParams = {};
+  if (!handler) {
+    const m = matchParamRoute(routes, req.method, url.pathname);
+    if (m) { handler = m.handler; pathParams = m.params; }
+  }
   if (handler) {
     try {
       let body = {};
@@ -76,7 +114,7 @@ const server = http.createServer(async (req, res) => {
         const raw = Buffer.concat(chunks).toString('utf8');
         body = raw ? JSON.parse(raw) : {};
       }
-      const q = Object.fromEntries(url.searchParams);
+      const q = { ...pathParams, ...Object.fromEntries(url.searchParams) };
       const result = (await handler(q, body)) ?? {};   // handlers may be async (/api/web/*)
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
