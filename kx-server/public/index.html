@@ -45,9 +45,15 @@
   <button id="progress">Apply progression from this phase</button>
   <button id="official">Compile Official Result</button>
   <button id="print">Print / PDF</button>
+  <button id="printComp">Print competition results</button>
   <span class="hint">Gate cells: click to cycle — · FLT · RAL (revocations kept in audit trail).
   Time, Finish, Status, Rank and Slot are editable; edits are saved on change.</span>
 </div>
+
+<!-- Shown only while a TT with split-time timing is open: states the clock
+     reading this event's slot 1 goes on, so a split can be sanity-checked
+     without working the athlete counts out by hand. -->
+<div id="ttSplitBanner" class="hint" style="display:none; margin:.5rem 0"></div>
 
 <table id="tbl"><thead></thead><tbody></tbody></table>
 
@@ -170,8 +176,41 @@ function updateGroups(ps) {
   if (gs.map(String).includes(prevGroup)) $('group').value = prevGroup;
 }
 
+// Split-time TT timing: spell out where this event sits on the stopwatch.
+// The Split column looks identical on every event, but under a continuous
+// clock the arithmetic behind it does not — a later event's slot 1 may go
+// at 13:00 rather than at the time shift — so the offsets actually in force
+// are stated outright instead of being left to be inferred. Fetched from the
+// server (GET /api/tt-clock) rather than recomputed here, so the page and
+// the stored times can never disagree about the athlete counts.
+async function renderSplitBanner(splitTiming) {
+  const b = $('ttSplitBanner');
+  if (!splitTiming) { b.style.display = 'none'; return; }
+  let c;
+  try { c = await j('GET', `/api/tt-clock?event_id=${eventId}`); }
+  catch { b.style.display = 'none'; return; }
+  if (!c.enabled) { b.style.display = 'none'; return; }
+  const parts = [
+    'Split-time timing: enter the shared-stopwatch reading in Split — Time is calculated.',
+    `Slot 1 starts at ${fmt(c.first_slot_offset_ms)} on the clock, ` +
+      `+${c.start_interval_ms / 1000}s per slot.`,
+  ];
+  if (c.continuous_clock) {
+    parts.push(c.prior_slots
+      ? `One clock across all events: ${c.prior_slots} slot(s) ran before this event ` +
+        `(${fmt(c.time_shift_ms)} time shift + ${c.prior_slots} × ${c.start_interval_ms / 1000}s).`
+      : `One clock across all events: this event is first, so it carries the time shift.`);
+  }
+  b.textContent = parts.join(' ');
+  b.style.display = '';
+}
+
 async function loadTable() {
-  if (!eventId || !$('phase').value) { $('tbl').tBodies[0].innerHTML = ''; return; }
+  if (!eventId || !$('phase').value) {
+    $('tbl').tBodies[0].innerHTML = '';
+    $('ttSplitBanner').style.display = 'none';
+    return;
+  }
   const rows = await j('GET',
     `/api/phase?event_id=${eventId}&phase=${$('phase').value}&group_no=${$('group').value}`);
   const gateTh = Array.from({length: gates}, (_, i) => `<th>G${i+1}</th>`).join('');
@@ -185,6 +224,7 @@ async function loadTable() {
   const splitTiming = $('phase').value === 'TT'
     && comp?.tt_start_interval_ms != null && comp?.tt_time_shift_ms != null;
   const splitTh = splitTiming ? '<th>Split</th>' : '';
+  renderSplitBanner(splitTiming);
   $('tbl').tHead.innerHTML =
     `<tr><th>Slot</th><th>Bib</th><th>Name</th><th>Country/Club</th><th>TT</th>
      <th>Time</th>${splitTh}<th>Finish</th>${gateTh}<th>Status</th><th>Rank</th></tr>`;
@@ -313,8 +353,11 @@ $('progress').onclick = async () => {
 };
 $('startTT').onclick = async () => {
   try {
-    await j('POST', '/api/phase/start-tt', { event_id: eventId });
-    $('note').textContent = '';
+    const r = await j('POST', '/api/phase/start-tt', { event_id: eventId });
+    // Under a continuous clock this event's size decides where the events
+    // behind it start, so building its start list can move their times —
+    // and the server reports any that stopped adding up.
+    $('note').textContent = r.warning ?? '';
     loadPhases();
   } catch (e) { $('note').textContent = e.message; }
 };
@@ -334,6 +377,10 @@ $('print').onclick = () => {
   const url = `/print.html?event_id=${eventId}&phase=${$('phase').value}&group_no=${$('group').value}`;
   window.open(url, '_blank');
 };
+// Whole-competition results (every event's final classification), as
+// opposed to the per-heat sheet above. Competition-level, so it follows
+// the active competition rather than the selected event/phase.
+$('printComp').onclick = () => window.open('/print-competition.html', '_blank');
 $('event').onchange = loadPhases;
 
 // notify + fetch: any server-side change triggers a table refresh.
@@ -360,6 +407,13 @@ new EventSource('/api/stream').onmessage = ev => {
       competitions = cs;
       const c = cs.find(x => x.competition_id === activeCompetitionId);
       if (c) $('navCompName').textContent = c.competition_name;
+      // Split-time settings live on the competition, and changing them
+      // rewrites the computed TT times server-side — so redraw, rather than
+      // leave the table showing times from the previous settings. Same focus
+      // guard as the 'results' branch: never yank the field being typed in.
+      const active = document.activeElement;
+      if (active && active.tagName === 'INPUT' && $('tbl').contains(active)) return;
+      loadTable();
     });
   }
 };
@@ -368,3 +422,5 @@ loadActiveCompetition();
 </script>
 </body>
 </html>
+
+

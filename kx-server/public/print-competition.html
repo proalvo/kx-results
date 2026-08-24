@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KX-Results — Competition results</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  /* Layout, palette and sheet model are print.html's, unchanged — the two
+     documents are printed side by side during a competition and must not
+     look like they came from different software. The only structural
+     difference: print.html prints ONE heat and therefore one sheet, while
+     this prints the whole competition as one sheet per event, so the
+     per-sheet pieces (header, logos, footer) are classes here rather than
+     ids. */
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #16324a;
+    margin: 0; background: #eef2f5;
+  }
+
+  /* On-screen chrome (toolbar, page background) — hidden entirely when
+     actually printing, per the .no-print rule below. */
+  #toolbar {
+    padding: .8rem 1.2rem; background: #16324a; color: white;
+    display: flex; gap: .8rem; align-items: center; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 2;
+  }
+  #toolbar button { font: inherit; padding: .5rem 1rem; border-radius: 5px;
+    border: none; background: #ffb703; color: #16324a; font-weight: 700; cursor: pointer; }
+  #toolbar a { color: #cdd9e3; font-size: .9rem; }
+  #toolbar .status { margin-left: auto; font-size: .85rem; color: #cdd9e3; }
+  #options { padding: .6rem 1.2rem; background: #24455f; color: #cdd9e3;
+    display: flex; gap: 1.1rem; align-items: center; flex-wrap: wrap; font-size: .85rem; }
+  #options label { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
+  #eventPicker { display: flex; gap: .9rem; flex-wrap: wrap;
+    padding: .5rem 1.2rem .7rem; background: #24455f; color: #cdd9e3; font-size: .85rem; }
+  #eventPicker label { display: inline-flex; align-items: center; gap: .3rem; cursor: pointer; }
+
+  /* The actual printable sheet: A4 portrait, centered on screen so it
+     previews roughly like a real page before printing. One per event. */
+  .sheet {
+    background: white; width: 210mm; min-height: 297mm; margin: 1.5rem auto;
+    padding: 15mm 15mm 20mm; box-shadow: 0 0 12px rgba(0,0,0,.15);
+  }
+
+  .sheetHeader { border-bottom: 3px solid #16324a; padding-bottom: .6rem; margin-bottom: 1.2rem; }
+  /* .sheetHeader .titles h1 { font-size: 1.3rem; margin: 0 0 .2rem; } */
+  .sheetHeader .titles h3 { font-size: .95rem; margin: 0 0 .2rem; color: #5a7286;}
+  .sheetHeader .titles .comp { font-size: 1.3rem; color: #16324a; font-weight: bold;}
+  /*.sheetHeader .titles .comp { font-size: .95rem; color: #46647a; } */
+  .sheetHeader .titles .meta { font-size: .85rem; color: #5a7286; margin-top: .3rem; }
+  /* Competition-level header image: a full-width letterhead banner across
+     the printable area, not a corner mark. width:100% makes it span the
+     sheet; the max-height is a guard so that uploading a squarish image
+     cannot swallow the page — object-fit keeps the aspect ratio either way.
+     Empty and invisible until a header image is uploaded. */
+  .headerLogo { width: 100%; }
+  .headerLogo img { display: block; width: 100%; height: auto;
+    max-height: 151px; object-fit: contain; margin-bottom: .6rem; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+  thead { display: table-header-group; }   /* repeat header on every printed page */
+  th, td { border: 1px solid #b7c6d4; padding: .35rem .6rem; text-align: left; font-size: .92em; }
+  th { background: #e8eff5; }
+  td.num { text-align: center; width: 3em; }
+  td.timing { text-align: right; }
+  td.timing.fault { color: #b34700; font-weight: 700; }
+  td.round { color: #5a7286; font-size: .85em; }
+  tr { break-inside: avoid; }
+
+  .sheetFooter { margin-top: 1.5rem; padding-top: .5rem; border-top: 1px solid #cdd9e3;
+    font-size: .78em; color: #5a7286; }
+  /* Full-width footer banner (typically a sponsor strip), matching the
+     header. Sits below the printed-at stamp so the stamp is never crowded
+     out by the artwork. Same aspect-ratio guard as the header. */
+  .footerLogo { width: 100%; }
+  .footerLogo img { display: block; width: 100%; height: auto;
+    max-height: 94px; object-fit: contain; margin-top: .5rem; }
+
+  /* An event whose result the Chief has not compiled is printed, but must
+     never be mistakable for an official one. */
+  .badge { font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: .3px; vertical-align: .15em; }
+  .badge.official { background: #256029; color: white; }
+  .badge.provisional { background: #b34700; color: white; }
+  .badge.pending { background: #5a7286; color: white; }
+  .caveat { margin-top: .6rem; font-size: .8em; color: #7a2e2e; }
+  .subhead { margin-top: 1.2rem; font-size: .9rem; font-weight: 700; color: #46647a; }
+  .signatures { margin-top: 12mm; break-inside: avoid; }
+  .signatures div { width: 70mm; border-top: 1px solid #16324a; padding-top: .3rem;
+    font-size: .78em; color: #5a7286; }
+
+  .note { padding: 1rem 1.2rem; color: #7a2e2e; }
+
+  @media print {
+    body { background: white; }
+    #toolbar, #options, #eventPicker, .no-print { display: none !important; }
+    .sheet { box-shadow: none; margin: 0; width: auto; min-height: 0; padding: 0; }
+    .sheet + .sheet { break-before: page; }
+    @page { size: A4 portrait; margin: 15mm; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar" class="no-print">
+  <button id="printBtn" type="button">Print / Save as PDF</button>
+  <a href="/">← Back to Phase page</a>
+  <span class="status" id="status"></span>
+</div>
+
+<div id="options" class="no-print">
+  <label><input type="checkbox" id="optProvisional" checked> Include unfinished events</label>
+  <label><input type="checkbox" id="optBib" checked> Bib</label>
+  <label><input type="checkbox" id="optFault" checked> Fault</label>
+  <label><input type="checkbox" id="optTT"> Time Trial time</label>
+  <label><input type="checkbox" id="optRound"> Eliminated in</label>
+  <label><input type="checkbox" id="optSignature" checked> Signature line</label>
+</div>
+<div id="eventPicker" class="no-print"></div>
+
+<div id="sheets"></div>
+<div class="note" id="errorNote"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+const j = (m, url) => fetch(url).then(async r => {
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+});
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const PHASE_LABELS = { TT: 'Time Trial', Q: 'Qualification', RQ: 'Repechage Qualification',
+  QF: 'Quarterfinal', SF: 'Semifinal', F: 'Final', RESULT: 'Official Result' };
+
+// competition.country holds an IOC/ICF three-letter code, which is NOT an
+// ISO 3166 code and is rejected outright by Intl ("en-FIN" throws). So the
+// codes that differ, or that pick the wrong language by default, are mapped
+// explicitly. Entries cover the ICF canoe-slalom nations; anything missing
+// falls through to ISO-8601-ish 'en-GB', which is unambiguous everywhere
+// and never renders 01/08 as January 8th.
+//
+// The date on a results sheet is read at the venue, so it should look the
+// way it looks locally: 1.8.2026 in Helsinki, 01/08/2026 in London.
+const IOC_LOCALE = {
+  FIN: 'fi-FI', SWE: 'sv-SE', NOR: 'nb-NO', DEN: 'da-DK', ISL: 'is-IS',
+  GER: 'de-DE', AUT: 'de-AT', SUI: 'de-CH', NED: 'nl-NL', BEL: 'nl-BE',
+  FRA: 'fr-FR', ESP: 'es-ES', POR: 'pt-PT', ITA: 'it-IT', GRE: 'el-GR',
+  POL: 'pl-PL', CZE: 'cs-CZ', SVK: 'sk-SK', SLO: 'sl-SI', CRO: 'hr-HR',
+  HUN: 'hu-HU', ROU: 'ro-RO', BUL: 'bg-BG', SRB: 'sr-RS', EST: 'et-EE',
+  LAT: 'lv-LV', LTU: 'lt-LT', UKR: 'uk-UA', RUS: 'ru-RU', TUR: 'tr-TR',
+  GBR: 'en-GB', IRL: 'en-IE', USA: 'en-US', CAN: 'en-CA', AUS: 'en-AU',
+  NZL: 'en-NZ', RSA: 'en-ZA', JPN: 'ja-JP', CHN: 'zh-CN', KOR: 'ko-KR',
+  BRA: 'pt-BR', ARG: 'es-AR', CHI: 'es-CL', MEX: 'es-MX',
+};
+
+// Date and time as they are written where the competition is held, in the
+// competition's own time zone — a sheet printed by a laptop still set to
+// another zone must not carry that laptop's clock. Falls back safely if
+// the stored zone is one this runtime does not know.
+function formatStamp(iso, comp) {
+  const locale = IOC_LOCALE[comp.country] ?? 'en-GB';
+  // Explicit numeric fields rather than dateStyle:'short', which abbreviates
+  // the year to two digits in several locales ('8/1/26'). A results sheet is
+  // an archival document — it states the full year.
+  const opts = { year: 'numeric', month: '2-digit', day: '2-digit',
+                 hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  if (comp.time_zone) opts.timeZone = comp.time_zone;
+  try {
+    return new Date(iso).toLocaleString(locale, opts);
+  } catch (e) {
+    // Unknown IANA zone: keep the local convention, drop the zone.
+    delete opts.timeZone;
+    return new Date(iso).toLocaleString(locale, opts);
+  }
+}
+
+// The competition's own dates are stored as plain 'YYYY-MM-DD' with no time
+// of day, so they are formatted as dates only — parsing them as instants
+// would shift them across midnight for zones west of UTC.
+function formatDate(ymd, comp) {
+  if (!ymd) return '';
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const locale = IOC_LOCALE[comp.country] ?? 'en-GB';
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(locale,
+    { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' });
+}
+
+// Heading for the affiliation column, matching what affiliation() will
+// actually put in it: a DOMESTIC sheet lists clubs, an INTERNATIONAL one
+// lists countries, so labelling either "Club / Country" misdescribes the
+// column. Only MIXED, which genuinely holds both, keeps the combined head.
+function affiliationHead(competition) {
+  switch (competition.type) {
+    case 'INTERNATIONAL': return 'Country';
+    case 'DOMESTIC': return 'Club';
+    default: return 'Club / Country';
+  }
+}
+
+// DOMESTIC -> club. INTERNATIONAL -> country. MIXED -> club if the
+// athlete's country matches the competition's own country, else country.
+// Kept identical to the streaming pages (not shared as a module, matching
+// this project's self-contained-page convention).
+function affiliation(athlete, competition) {
+  const sameCountry = athlete.country && competition.country
+    && athlete.country === competition.country;
+  switch (competition.type) {
+    case 'INTERNATIONAL': return athlete.country ?? '';
+    case 'DOMESTIC': return athlete.club ?? '';
+    case 'MIXED': return sameCountry ? (athlete.club ?? '') : (athlete.country ?? '');
+    default: return athlete.club ?? athlete.country ?? '';
+  }
+}
+const fmtTime = ms => ms == null ? '' :
+  `${Math.floor(ms/60000)}:${String(Math.floor(ms%60000/1000)).padStart(2,'0')}.${String(Math.floor(ms%1000/10)).padStart(2,'0')}`;
+
+// Same priority as stream-results.html: status > RAL > FLT > time — a
+// time is never shown next to an unseen fault, since rank already
+// reflects the fault and the time didn't decide it.
+function timeOrFault(r) {
+  if (r.status === 'DNS' || r.status === 'DNF' || r.status === 'DSQ') {
+    return { text: r.status, fault: true };
+  }
+  const gates = n => [1,2,3,4,5,6,7,8].filter(g => r['gate' + g] === n);
+  const ral = gates('RAL'), flt = gates('FLT');
+  if (ral.length) return { text: `RAL @ G${ral.join(',')}`, fault: true };
+  if (flt.length) return { text: `FLT @ G${flt.join(',')}`, fault: true };
+  return { text: fmtTime(r.time_ms), fault: false };
+}
+
+let doc = null, selected = null;
+
+// --------------------------------------------------------------- rendering
+
+// The round an athlete's competition ended in, e.g. "Semifinal 2".
+function roundOf(r) {
+  if (!r.eliminated_phase) return '';
+  const label = PHASE_LABELS[r.eliminated_phase] ?? r.eliminated_phase;
+  return r.eliminated_phase === 'TT' || !r.eliminated_group
+    ? label : `${label} ${r.eliminated_group}`;
+}
+
+const BADGES = {
+  OFFICIAL:    ['official',    'Official',      'Official Result'],
+  PROVISIONAL: ['provisional', 'Provisional',   'Provisional Result'],
+  PENDING:     ['pending',     'Not judged',    'Start List'],
+};
+
+function renderTable(rows, comp, showRank) {
+  const showTT = $('optTT').checked;
+  const showRound = $('optRound').checked;
+  const showBib = $('optBib').checked;
+  // Turning Fault off hides the column but never the fact: DNS/DNF/DSQ and
+  // gate penalties still decided the ranking, and a sheet printed without
+  // this column is a summary, not a correction.
+  const showFault = $('optFault').checked;
+  // An Official Result row carries no run time — the classification is a
+  // placing, not a race against the clock — so this sheet has no Time
+  // column, exactly as print.html suppresses one for the RESULT phase.
+  // The optional Time Trial column below is separate data: the tie-break
+  // of record in both rule books, and clearly headed as such.
+  const hasRanks = rows.some(r => r.rank != null);
+  const isResult = true;
+  const showTiming = hasRanks && !isResult;
+
+  const head = '<th class="num">' + (showRank ? 'Rank' : '#') + '</th>' +
+    (showBib ? '<th class="num">Bib</th>' : '') +
+    '<th>Name</th><th>' + affiliationHead(comp) + '</th>' +
+    (showTT ? '<th>Time Trial</th>' : '') +
+    (showTiming ? '<th>Time</th>' : '') +
+    (showRound ? '<th>Eliminated in</th>' : '') +
+    (showFault ? '<th>Fault</th>' : '');
+
+  const body = rows.map(r => {
+    const fault = timeOrFault(r);
+    return `<tr>
+      <td class="num">${r.rank ?? ''}</td>
+      ${showBib ? `<td class="num">${esc(r.bib)}</td>` : ''}
+      <td>${esc(r.last_name)} ${esc(r.first_name)}</td>
+      <td>${esc(affiliation(r, comp))}</td>
+      ${showTT ? `<td class="timing">${fmtTime(r.tt_time_ms)}</td>` : ''}
+      ${showRound ? `<td class="round">${esc(roundOf(r))}</td>` : ''}
+      ${showFault ? `<td class="timing ${fault.fault ? 'fault' : ''}">${esc(fault.text)}</td>` : ''}
+    </tr>`;
+  }).join('');
+
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderSheet(ev, comp, branding) {
+  // Same shape as print.html's header: competition line, then
+  // "<docType>: <what this sheet is>", then location · dates. docType
+  // follows the event's status — a sheet for an event the Chief has not
+  // compiled must not carry the words "Official Result" anywhere.
+  const [cls, badge, docType] = BADGES[ev.status] ?? BADGES.PENDING;
+  // A one-day competition prints a single date, not "2026-08-01 – 2026-08-01".
+  const dates = !comp.end_date || comp.end_date === comp.start_date
+    ? formatDate(comp.start_date, comp)
+    : `${formatDate(comp.start_date, comp)} – ${formatDate(comp.end_date, comp)}`;
+  const meta = [comp.location, dates].filter(Boolean).join(' · ');
+
+
+  let inner = '';
+  if (!ev.rows.length) {
+    inner = '<p class="caveat">No results have been judged for this event yet.</p>';
+  } else {
+    inner = renderTable(ev.rows, comp, true);
+  }
+  if (ev.unclassified.length) {
+    inner += '<div class="subhead">Entered, not classified</div>' +
+             renderTable(ev.unclassified, comp, false);
+  }
+  inner += (ev.notes || []).map(n => `<p class="caveat">${esc(n)}</p>`).join('');
+  if ($('optSignature').checked) {
+    inner += `<div class="signatures">
+      <div>Chief Judge — signature / date</div></div>`;
+  }
+
+  return `<div class="sheet">
+    <div class="sheetHeader">
+      <div class="headerLogo">${branding.header
+        ? `<img src="${branding.header}" alt="">` : ''}</div>
+      <div class="titles">
+        <div class="comp">${esc(comp.competition_name)} — ${esc(ev.event_name)}</div>
+        <!-- h1>${docType}: ${esc(ev.event_code)}
+          <span class="badge ${cls}">${badge}</span></h1 -->
+
+        <h3>${docType}: ${esc(ev.event_code)}
+          <span class="badge ${cls}">${badge}</span></h3>
+
+          <div class="meta">${esc(meta)}</div>
+      </div>
+    </div>
+    ${inner}
+    <div class="sheetFooter">
+      <div>KX-Results: Printed ${esc(formatStamp(Date.now(), comp))}</div>
+      <div class="footerLogo">${branding.footer
+        ? `<img src="${branding.footer}" alt="">` : ''}</div>
+    </div>
+  </div>`;
+}
+
+function render() {
+  if (!doc) return;
+  const events = doc.events.filter(ev =>
+    (!selected || selected.has(ev.event_id)) &&
+    ($('optProvisional').checked || ev.status === 'OFFICIAL'));
+
+  $('sheets').innerHTML = events.length
+    ? events.map(ev => renderSheet(ev, doc.competition, doc.branding)).join('')
+    : '';
+  $('errorNote').textContent = events.length ? '' : 'Nothing selected to print.';
+  $('status').textContent =
+    `${events.length} event(s) · ${events.reduce((n, e) => n + e.rows.length, 0)} placings`;
+  document.title = `Competition results — ${doc.competition.competition_name}`;
+}
+
+function renderPicker() {
+  $('eventPicker').innerHTML = 'Events: ' + doc.events.map(ev =>
+    `<label><input type="checkbox" class="ev" value="${esc(ev.event_id)}" checked>
+      ${esc(ev.event_code)}</label>`).join('');
+  document.querySelectorAll('.ev').forEach(cb => {
+    cb.onchange = () => {
+      selected = new Set([...document.querySelectorAll('.ev')]
+        .filter(c => c.checked).map(c => c.value));
+      render();
+    };
+  });
+}
+
+// -------------------------------------------------------------------- load
+async function main() {
+  let competitionId = qs.get('competition_id');
+  if (!competitionId) {
+    // Fall back to the session-wide active competition, the same one the
+    // Phase and Setup pages follow, so this page works from a bare link.
+    try { competitionId = (await j('GET', '/api/app-state')).active_competition_id; }
+    catch (e) { /* handled below */ }
+  }
+  if (!competitionId) {
+    $('errorNote').textContent =
+      'No competition selected. Pick one on the Start Here page, or add ' +
+      '?competition_id=… to the address.';
+    return;
+  }
+
+  try {
+    doc = await j('GET', `/api/competition-results?competition_id=${competitionId}`);
+  } catch (e) { $('errorNote').textContent = e.message; return; }
+
+  // Branding is optional: a competition with no logos uploaded still prints.
+  doc.branding = { header: null, footer: null };
+  try {
+    doc.branding = await j('GET', `/api/competition/${competitionId}/pdf-branding`);
+  } catch (e) { /* print without it */ }
+
+  if (!doc.events.length) {
+    $('errorNote').textContent = 'This competition has no events yet.';
+    return;
+  }
+  renderPicker();
+  render();
+}
+
+['optProvisional', 'optBib', 'optFault', 'optTT', 'optRound', 'optSignature']
+  .forEach(id => { $(id).onchange = render; });
+$('printBtn').onclick = () => window.print();
+main();
+</script>
+</body>
+</html>

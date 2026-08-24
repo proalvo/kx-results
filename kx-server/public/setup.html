@@ -30,6 +30,12 @@
   .badge.fit { background: #d8f0dc; color: #256029; }
   .badge.nofit { background: #ffe2a8; color: #7a4f00; }
   details summary { cursor: pointer; font-weight: 600; color: #16324a; }
+  td.order-cell { white-space: nowrap; }
+  button.move { padding: .1rem .3rem; margin: 0; line-height: 1;
+    background: #e8eff5; border: 1px solid #b7c6d4; border-radius: 3px;
+    cursor: pointer; color: #16324a; }
+  button.move:disabled { color: #b7c6d4; cursor: not-allowed; background: #f7fafc; }
+  .order-no { color: #5a7286; font-size: .85em; margin-left: .25rem; }
 </style>
 </head>
 <body>
@@ -84,13 +90,32 @@ the default for every competition. Applies to the active competition
   <div><label>Start interval (seconds)</label><input id="tt_interval_s" type="number" min="0" step="1" placeholder="e.g. 60"></div>
   <div><label>Time shift (minutes)</label><input id="tt_shift_min" type="number" min="0" step="0.1" placeholder="e.g. 5"></div>
 </div>
+<div class="row">
+  <div><label style="font-weight:normal">
+    <input id="tt_continuous" type="checkbox" style="width:auto; margin-right:.4em; margin-top: 1em; margin-bottom: 1em;">
+    One clock across all events — apply the time shift to the first event only
+  </label>
+  <span class="hint" style="color:#5a7286">Tick this when the stopwatch is
+  started once and left running through the whole Time Trial session. The time
+  shift is then the lead-in before the very first athlete of the first event
+  only; each later event's slots carry on counting from where the previous
+  event stopped, so with a 60s interval and an 8-athlete first event, the
+  second event's slot 1 starts at 13:00 on the clock. Which event runs when
+  comes from the running order in Events, below. Leave it unticked — the
+  default — if the clock is restarted for each event, so every event's slot 1
+  starts at the time shift.</span></div>
+</div>
 <button id="ttSaveBtn" type="button">Save split-time settings</button>
 <button id="ttDisableBtn" type="button" style="background:white; color:#16324a; border:1px solid #b7c6d4">Disable (use direct time entry)</button>
 <div class="note" id="ttNote"></div>
 
 <h2>2. Events</h2>
+<p class="hint">Events are listed in the running order you set here. Use the
+▲ / ▼ buttons to move an event up or down — the new order applies everywhere
+at once: the event picker on the Phase page, the Gate Judge and streaming
+control pages, the printed overall results, and the public website.</p>
 <table id="eventTable"><thead>
-  <tr><th>Code</th><th>Name</th><th>Gates</th><th>Rule</th><th>Athletes</th><th>Fit</th><th></th></tr>
+  <tr><th style="width:5.5em">Order</th><th>Code</th><th>Name</th><th>Gates</th><th>Rule</th><th>Athletes</th><th>Fit</th><th></th></tr>
 </thead><tbody></tbody></table>
 <details>
 <summary>Add a new event</summary>
@@ -124,6 +149,9 @@ the default for every competition. Applies to the active competition
   <button type="submit">Upload athletes</button>
 </form>
 </details>
+<br>
+<p class="note" style="margin:.3rem 0"><a href="/starttiin.html">Upload athletes</a> 
+  - import start lists from starttiin.fi</p>
 <div class="note" id="athleteNote"></div>
 
 
@@ -143,7 +171,7 @@ Images must be PNG or JPG, max 1 MB each.</p>
 
 <div style="margin-top:1.5rem">
   <label>PDF header image (PNG/JPG, max 1 MB)
-    <input id="pdf_header" type="file" accept="image/png,image/jpeg"></label>
+    <input id="pdf_header" type="file" accept="image/png,image/jpeg,image/svg+xml"></label>
   <span id="pdf_header_name" style="color:#5a7286; font-size:0.85rem"></span>
   <button type="button" id="pdf_header_upload">Upload header</button>
   <button type="button" id="pdf_header_clear" style="display:none">Clear header</button>
@@ -151,7 +179,7 @@ Images must be PNG or JPG, max 1 MB each.</p>
 
 <div style="margin-top:1rem">
   <label>PDF footer image (PNG/JPG, max 1 MB)
-    <input id="pdf_footer" type="file" accept="image/png,image/jpeg"></label>
+    <input id="pdf_footer" type="file" accept="image/png,image/jpeg,image/svg+xml"></label>
   <span id="pdf_footer_name" style="color:#5a7286; font-size:0.85rem"></span>
   <button type="button" id="pdf_footer_upload">Upload footer</button>
   <button type="button" id="pdf_footer_clear" style="display:none">Clear footer</button>
@@ -285,7 +313,7 @@ $('compForm').onsubmit = async e => {
 async function loadEvents() {
   if (!activeCompetitionId) { $('eventTable').tBodies[0].innerHTML = ''; return; }
   const events = await j('GET', `/api/events?competition_id=${activeCompetitionId}`);
-  $('eventTable').tBodies[0].innerHTML = events.map(ev => {
+  $('eventTable').tBodies[0].innerHTML = events.map((ev, i) => {
     const range = ev.min_athletes != null || ev.max_athletes != null
       ? `${ev.min_athletes ?? '?'}–${ev.max_athletes ?? '?'}` : '(any)';
     const fit = checkRuleFits(ev, ev.athlete_count);
@@ -300,7 +328,17 @@ async function loadEvents() {
     const deleteBtn = ev.athlete_count > 0
       ? `<button class="secondary" disabled title="Has ${ev.athlete_count} athlete(s) — remove them first">Delete</button>`
       : `<button class="secondary" data-delete-event="${ev.event_id}">Delete</button>`;
+    // Move up / down. The ends are disabled rather than hidden so the
+    // buttons don't shift position as rows move — the Chief can click ▼
+    // repeatedly on the same spot to walk an event down the schedule.
+    const orderCell = `<td class="order-cell">
+      <button class="move" data-move="up" data-id="${ev.event_id}"
+        ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
+      <button class="move" data-move="down" data-id="${ev.event_id}"
+        ${i === events.length - 1 ? 'disabled' : ''} title="Move down">▼</button>
+      <span class="order-no">${i + 1}</span></td>`;
     return `<tr>
+      ${orderCell}
       <td><input type="text" value="${ev.event_code}" data-id="${ev.event_id}" data-f="event_code"></td>
       <td><input type="text" value="${ev.event_name}" data-id="${ev.event_id}" data-f="event_name"></td>
       <td><input type="number" min="1" max="8" value="${ev.gates}" data-id="${ev.event_id}" data-f="gates"></td>
@@ -308,6 +346,31 @@ async function loadEvents() {
         <span style="color:#5a7286">${range}</span></td>
       <td>${ev.athlete_count}</td><td>${badge}</td><td>${deleteBtn}</td></tr>`;
   }).join('');
+  // Reorder: swap the clicked event with its neighbour and send the whole
+  // resulting order to the server, which renumbers 1..N. Sending the full
+  // list (rather than "move this one up") keeps the request idempotent and
+  // safe if another tab changed things meanwhile — see POST
+  // /api/events/reorder in lib/api.js.
+  $('eventTable').querySelectorAll('[data-move]').forEach(btn => btn.onclick = async () => {
+    const ids = events.map(e => e.event_id);
+    const from = ids.indexOf(btn.dataset.id);
+    const to = btn.dataset.move === 'up' ? from - 1 : from + 1;
+    if (from < 0 || to < 0 || to >= ids.length) return;
+    [ids[from], ids[to]] = [ids[to], ids[from]];
+    // Disable the whole group for the round-trip: double-clicking ▼ faster
+    // than the server answers would otherwise compute the second move from
+    // a stale `events` array and undo the first.
+    $('eventTable').querySelectorAll('[data-move]').forEach(b => b.disabled = true);
+    try {
+      const r = await j('POST', '/api/events/reorder',
+        { competition_id: activeCompetitionId, event_ids: ids });
+      // On a continuous clock, moving an event moves where it sits on the
+      // shared stopwatch, and the server recalculates the Time Trial times
+      // behind it. Say so when any of them stopped adding up.
+      note('eventNote', r.warning ? `Order saved. ${r.warning}` : 'Order saved.', !r.warning);
+      await loadEvents();
+    } catch (err) { note('eventNote', err.message, false); await loadEvents(); }
+  });
   $('eventTable').querySelectorAll('[data-delete-event]').forEach(btn => btn.onclick = async () => {
     if (!confirm('Delete this event? This cannot be undone.')) return;
     try {
@@ -353,6 +416,7 @@ function loadTTFields() {
   const c = competitions.find(x => x.competition_id === activeCompetitionId);
   $('tt_interval_s').value = c?.tt_start_interval_ms != null ? c.tt_start_interval_ms / 1000 : '';
   $('tt_shift_min').value = c?.tt_time_shift_ms != null ? c.tt_time_shift_ms / 60000 : '';
+  $('tt_continuous').checked = !!c?.tt_continuous_clock;
 }
 $('ttSaveBtn').onclick = async () => {
   const s = $('tt_interval_s').value, m = $('tt_shift_min').value;
@@ -365,13 +429,23 @@ $('ttSaveBtn').onclick = async () => {
       competition_id: activeCompetitionId,
       tt_start_interval_ms: s === '' ? null : Math.round(+s * 1000),
       tt_time_shift_ms: m === '' ? null : Math.round(+m * 60000),
+      tt_continuous_clock: $('tt_continuous').checked,
     });
-    note('ttNote', s === '' ? 'Split-time timing disabled.' : 'Saved.', true);
+    // Saving rewrites every Time Trial time already derived from a split
+    // reading, so say so rather than letting times change behind the
+    // Chief's back. Settings that can't be reconciled with the splits on
+    // file are rejected outright and land in the catch below, with nothing
+    // saved — see recomputeTTTimes in lib/api.js.
+    note('ttNote', s === ''
+      ? 'Split-time timing disabled.'
+      : 'Saved — any Time Trial times already entered as splits have been recalculated.',
+      true);
     loadCompetitions();
   } catch (err) { note('ttNote', err.message, false); }
 };
 $('ttDisableBtn').onclick = async () => {
   $('tt_interval_s').value = ''; $('tt_shift_min').value = '';
+  $('tt_continuous').checked = false;
   $('ttSaveBtn').onclick();
 };
 
@@ -476,8 +550,8 @@ $('brandingForm').onsubmit = async e => {
     const file = $('pdf_' + type).files[0];
     if (!file) return;
     if (file.size > 1024*1024) { note('brandingImageNote', type + ' image > 1 MB', false); return; }
-    if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      note('brandingImageNote', 'Only PNG and JPG allowed', false); return;
+    if (!['image/png', 'image/jpeg', 'image/svg+xml'].includes(file.type)) {
+      note('brandingImageNote', 'Only PNG, JPG and SVG allowed', false); return;
     }
     const reader = new FileReader();
     reader.onload = async () => {
@@ -573,3 +647,7 @@ new EventSource('/api/stream').onmessage = ev => {
 </script>
 </body>
 </html>
+
+
+
+

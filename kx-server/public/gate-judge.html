@@ -220,13 +220,16 @@ async function refreshHeat() {
   if (state.gateNo === 'FINISH') {
     // Split-time TT timing (see lib/tt-timing.js) only applies to TT —
     // head-to-head heats (QF/SF/F...) don't have a staggered start.
-    let splitTiming = false;
+    // One call answers both questions: whether splits are in use at all,
+    // and — under a continuous clock — where this event sits on the shared
+    // stopwatch, which is what makes a large reading like 13:42 plausible
+    // rather than a slip of the thumb.
+    let clock = null;
     if (ev.current_phase === 'TT') {
-      const comps = await j('GET', '/api/competitions');
-      const comp = comps.find(c => c.competition_id === state.competitionId);
-      splitTiming = comp?.tt_start_interval_ms != null && comp?.tt_time_shift_ms != null;
+      try { const c = await j('GET', `/api/tt-clock?event_id=${state.eventId}`);
+            if (c.enabled) clock = c; } catch { /* fall back to direct time entry */ }
     }
-    renderFinishLine(rows, splitTiming);
+    renderFinishLine(rows, clock);
   } else {
     renderGatePenalties(rows, state.gateNo);
   }
@@ -266,12 +269,13 @@ function renderGatePenalties(rows, g) {
   });
 }
 
-function renderFinishLine(rows, splitTiming) {
+function renderFinishLine(rows, clock) {
   // Split-time TT timing: the judge enters the raw shared-stopwatch
   // reading (Split); the server computes the actual result Time from it
   // (see lib/tt-timing.js) — same relationship as the Phase page's
   // Split/Time columns. Otherwise (the default) Time is entered directly,
   // exactly as before.
+  const splitTiming = clock != null;
   const timeField = splitTiming
     ? r => `<div class="field">
         <label>Split</label>
@@ -287,7 +291,15 @@ function renderFinishLine(rows, splitTiming) {
         <input type="text" inputmode="decimal" placeholder="m:ss.hh"
           value="${fmtTime(r.time_ms)}" data-id="${r.result_id}" data-f="time">
       </div>`;
-  $('heatBody').innerHTML = rows.map(r => `<div class="athlete-card">
+  // Under a continuous clock the readings a judge writes down late in the
+  // day are large (13:42, not 42.30), which looks like a mistake unless you
+  // know where this event sits on the stopwatch. State it.
+  const clockNote = splitTiming
+    ? `<p class="note">Enter the shared-stopwatch reading. Slot 1 of this event
+       goes at ${fmtTime(clock.first_slot_offset_ms)}, +${clock.start_interval_ms / 1000}s
+       per slot.</p>`
+    : '';
+  $('heatBody').innerHTML = clockNote + rows.map(r => `<div class="athlete-card">
       <div class="name">${r.bib} — ${r.first_name} ${r.last_name}</div>
       <div class="meta">${r.club ?? ''} ${r.country ?? ''}</div>
       <div class="finish-row">
@@ -357,3 +369,4 @@ loadCompetitions();
 </script>
 </body>
 </html>
+
