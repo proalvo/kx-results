@@ -19,6 +19,7 @@ Main screen to orgestrate the compeition:
 - Publish results in Internet in real-time (at website with *kx-web* installed, such as [wwcf.fi/kx-results](https://wwcf.fi/kx-results)
 - Print result as PDF.
 - Add header and footer to PDFs.
+- Start lists and results are ready available for the live streaming.
 - Leaderboard for on site competition information 
 
 ## How to install and use the software
@@ -78,9 +79,10 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 - Events are listed in alphabetical order by code (e.g. KXM is 1st, KXN is 2nd). Results manager should set the order of the events.
 - possible to time schedule of the competiion
 - "review" state for faults in public views/streaming.
-- export results to CSV file
+- export results to the CSV file
 - CAPITALISE surname
 - first_name_initial should be without dot (.)
+- Graphics for the live streaming can be modified easier. 
   
 
 ## Knows bugs or features that require improvement
