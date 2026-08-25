@@ -6,8 +6,7 @@ The software runs locally on any Windows or Linux PC and serves every role on th
 
 Start lists and results can be printed as PDF, and results sync easily to a public website for spectators.
 
-***Fast water. Fast results.***
-
+Main screen to orgestrate the compeition:
 ![KX-Results main screen](images/kx-results-index.png) 
 
 ## Features
