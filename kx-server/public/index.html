@@ -20,6 +20,36 @@
   .note { color: #7a2e2e; margin-top: .5rem; white-space: pre-line; }
   .hint { color: #5a7286; font-size: .85rem; }
   #liveToggle.on { background: #256029; color: white; }
+
+  /* ---- Phase / Heat navigation ------------------------------------
+     Phase and Heat are stepped with buttons rather than picked from a
+     dropdown: at the scoring desk the next thing you want is almost
+     always the adjacent phase or the next heat, and a two-click
+     open-then-pick gesture (or a mis-scrolled select) is the wrong
+     tool for that. Phase steps left/right along the competition's
+     canonical order (TT-Q-RQ-QF-SF-F-RESULT, as returned by
+     /api/phases); Heat steps up/down through the heats of the phase
+     currently shown. Ends of a run disable rather than wrap, so the
+     buttons also read as a position indicator. */
+  .nav { display: flex; align-items: center; gap: 1.4rem; flex-wrap: wrap;
+         background: #f4f8fb; border: 1px solid #d6e2ec; border-radius: 6px;
+         padding: .5rem .8rem; }
+  .nav-group { display: flex; align-items: center; gap: .4rem; }
+  .nav-group > .lbl { color: #5a7286; font-size: .78rem; letter-spacing: .05em;
+                      text-transform: uppercase; margin-right: .1rem; }
+  button.step { width: 2.5rem; height: 2.5rem; padding: 0; margin: 0;
+                display: inline-flex; align-items: center; justify-content: center;
+                font-size: 1rem; line-height: 1; color: #16324a;
+                background: #fff; border: 1px solid #b7c6d4; border-radius: 5px;
+                cursor: pointer; }
+  button.step:hover:not(:disabled) { background: #e8eff5; }
+  button.step:active:not(:disabled) { background: #d8e5ef; }
+  button.step:disabled { opacity: .3; cursor: default; }
+  .vstack { display: flex; flex-direction: column; gap: .18rem; }
+  .vstack button.step { height: 1.65rem; }
+  .val { min-width: 4.6rem; text-align: center; padding: 0 .2rem; }
+  .val b { font-size: 1.05rem; display: block; line-height: 1.1; }
+  .val small { display: block; color: #5a7286; font-size: .72rem; }
 </style>
 </head>
 <body>
@@ -27,11 +57,34 @@
 <nav style="margin-bottom:.4rem"><a href="/start.html">Start Here</a> | <a href="/">Phase page</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
 <nav style="margin-bottom:1rem; font-size:.9rem; color:#5a7286">Active competition: <strong id="navCompName" style="color:#16324a">—</strong> (<a href="/start.html">switch</a>)</nav>
 
-<div>
-  Event <select id="event"></select>
-  Phase <select id="phase"></select>
-  Heat <select id="group"></select>
+<div class="nav">
+  <div class="nav-group">
+    <span class="lbl">Event</span>
+    <select id="event"></select>
+  </div>
+
+  <div class="nav-group">
+    <span class="lbl">Phase</span>
+    <button class="step" id="phasePrev" type="button"
+            aria-label="Previous phase" title="Previous phase (←)">&#9664;</button>
+    <span class="val" id="phaseVal" aria-live="polite"><b>—</b><small>&nbsp;</small></span>
+    <button class="step" id="phaseNext" type="button"
+            aria-label="Next phase" title="Next phase (→)">&#9654;</button>
+  </div>
+
+  <div class="nav-group">
+    <span class="lbl">Heat</span>
+    <span class="val" id="groupVal" aria-live="polite"><b>—</b><small>&nbsp;</small></span>
+    <span class="vstack">
+      <button class="step" id="groupPrev" type="button"
+              aria-label="Previous heat" title="Previous heat (↑)">&#9650;</button>
+      <button class="step" id="groupNext" type="button"
+              aria-label="Next heat" title="Next heat (↓)">&#9660;</button>
+    </span>
+  </div>
+
   <button id="reload">Reload</button>
+  <span class="hint">Arrow keys step phase (← →) and heat (↑ ↓) when no field is focused.</span>
 </div>
 
 <div class="bar" style="background:#eef6ff; padding:.4rem .6rem; border-radius:5px">
@@ -44,7 +97,7 @@
   <button id="rank">Auto-rank this heat</button>
   <button id="progress">Apply progression from this phase</button>
   <button id="official">Compile Official Result</button>
-  <button id="print">Print / PDF</button>
+  <button id="print">Print this phase</button>
   <button id="printComp">Print competition results</button>
   <span class="hint">Gate cells: click to cycle — · FLT · RAL (revocations kept in audit trail).
   Time, Finish, Status, Rank and Slot are editable; edits are saved on change.</span>
@@ -81,6 +134,21 @@ const parse = t => {                      // "1:32.45" | "92.45" | "" -> ms|null
 let gates = 6, eventId = null, competitions = [], activeCompetitionId = null;
 const CYCLE = { '': 'FLT', 'FLT': 'RAL', 'RAL': '' };
 
+// Phase/heat selection state. Previously this lived in the two <select>
+// elements' .value; with steppers there is no element to hold it, so it is
+// held here and the buttons render from it. phaseRows is the raw
+// /api/phases response (one row per phase+heat that actually has results),
+// kept around because the heat run depends on which phase is shown.
+let phaseRows = [];      // [{ phase, group_no }, ...] for the current event
+let phaseList = [];      // distinct phases, in competition order
+let groupList = [];      // heats of curPhase, ascending
+let curPhase = null;     // string | null
+let curGroup = null;     // number | null
+// Last phase actually chosen, kept separately from curPhase so that passing
+// through an event with no start lists yet (curPhase goes null) doesn't
+// forget the round being worked on.
+let stickyPhase = null;
+
 async function loadActiveCompetition() {
   const state = await j('GET', '/api/app-state');
   if (!state.active_competition_id) { location.href = '/start.html'; return; }
@@ -104,21 +172,19 @@ let liveTracking = false;
 async function loadPhases(preferPhase) {
   eventId = $('event').value;
   gates = +($('event').selectedOptions[0]?.dataset.gates ?? 6);
-  const prevPhase = $('phase').value;                 // capture before rebuild
-  const ps = await j('GET', `/api/phases?event_id=${eventId}`);
-  const phases = [...new Set(ps.map(p => p.phase))];
-  $('phase').innerHTML = phases.map(p => `<option>${p}</option>`).join('');
-  // Rebuilding innerHTML resets selection to the first option; restore the
-  // phase the user was actually looking at (or the caller's preferred one)
-  // instead of silently jumping back to TT.
-  const selected = (preferPhase && phases.includes(preferPhase)) ? preferPhase
-    : phases.includes(prevPhase) ? prevPhase
-    : phases[0];
-  if (selected) $('phase').value = selected;
-  updateGroups(ps); await loadTable();
+  phaseRows = await j('GET', `/api/phases?event_id=${eventId}`);
+  // /api/phases already returns TT, Q, RQ, QF, SF, F, RESULT in that order,
+  // which is what makes "previous"/"next" mean the adjacent round rather
+  // than an arbitrary neighbour in a list.
+  phaseList = [...new Set(phaseRows.map(p => p.phase))];
+  // Keep showing the phase the user was actually looking at (or the
+  // caller's preferred one) instead of silently jumping back to TT.
+  curPhase = (preferPhase && phaseList.includes(preferPhase)) ? preferPhase
+    : phaseList.includes(stickyPhase) ? stickyPhase
+    : (phaseList[0] ?? null);
+  if (curPhase) stickyPhase = curPhase;
+  updateGroups(); await loadTable();
   await loadActiveHeatState();
-  $('phase').onchange = () => { updateGroups(ps); loadTable(); syncActiveHeat(); };
-  $('group').onchange = () => { loadTable(); syncActiveHeat(); };
 }
 // Live tracking: when ON, the phase/heat currently open on screen IS always
 // the active heat Gate Judge phones see — no separate "set active" action.
@@ -130,8 +196,8 @@ async function loadActiveHeatState() {
   liveTracking = !!ev?.live_tracking;
   updateToggleUI();
   if (liveTracking &&
-      (ev.current_phase !== $('phase').value || ev.current_group !== +$('group').value)) {
-    // reconcile: e.g. after a reload where the dropdown restored a phase
+      (ev.current_phase !== curPhase || ev.current_group !== curGroup)) {
+    // reconcile: e.g. after a reload where the page restored a phase
     // that doesn't match what's still recorded as active server-side
     await syncActiveHeat();
   } else {
@@ -148,10 +214,10 @@ function updateToggleUI() {
   $('liveToggle').classList.toggle('on', liveTracking);
 }
 async function syncActiveHeat() {
-  if (!liveTracking || !eventId || !$('phase').value) return;
+  if (!liveTracking || !eventId || !curPhase) return;
   await j('PATCH', '/api/events', { event_id: eventId,
-    current_phase: $('phase').value, current_group: +$('group').value });
-  renderActiveHeatStatus({ current_phase: $('phase').value, current_group: +$('group').value });
+    current_phase: curPhase, current_group: curGroup });
+  renderActiveHeatStatus({ current_phase: curPhase, current_group: curGroup });
 }
 $('liveToggle').onclick = async () => {
   if (!eventId) return;
@@ -160,8 +226,8 @@ $('liveToggle').onclick = async () => {
   try {
     if (liveTracking) {
       await j('PATCH', '/api/events', { event_id: eventId, live_tracking: 1,
-        current_phase: $('phase').value, current_group: +$('group').value });
-      renderActiveHeatStatus({ current_phase: $('phase').value, current_group: +$('group').value });
+        current_phase: curPhase, current_group: curGroup });
+      renderActiveHeatStatus({ current_phase: curPhase, current_group: curGroup });
     } else {
       await j('PATCH', '/api/events', { event_id: eventId, live_tracking: 0,
         current_phase: null, current_group: null });
@@ -169,12 +235,66 @@ $('liveToggle').onclick = async () => {
     }
   } catch (e) { $('note').textContent = e.message; }
 };
-function updateGroups(ps) {
-  const prevGroup = $('group').value;
-  const gs = ps.filter(p => p.phase === $('phase').value).map(p => p.group_no);
-  $('group').innerHTML = gs.map(g => `<option>${g}</option>`).join('');
-  if (gs.map(String).includes(prevGroup)) $('group').value = prevGroup;
+function updateGroups() {
+  const prevGroup = curGroup;
+  groupList = phaseRows.filter(p => p.phase === curPhase).map(p => p.group_no);
+  curGroup = groupList.includes(prevGroup) ? prevGroup : (groupList[0] ?? null);
+  renderNav();
 }
+
+// ---- Phase / Heat steppers -----------------------------------------
+// Both readouts carry an "n of m" line: with no dropdown to open there is
+// otherwise nothing that says how many rounds or heats exist, and a
+// disabled button on its own is easy to read as "broken" rather than
+// "you are at the end".
+function renderNav() {
+  const pIdx = phaseList.indexOf(curPhase);
+  $('phaseVal').innerHTML = curPhase
+    ? `<b>${curPhase}</b><small>${pIdx + 1} of ${phaseList.length}</small>`
+    : `<b>—</b><small>&nbsp;</small>`;
+  $('phasePrev').disabled = pIdx <= 0;
+  $('phaseNext').disabled = pIdx < 0 || pIdx >= phaseList.length - 1;
+
+  const gIdx = groupList.indexOf(curGroup);
+  $('groupVal').innerHTML = curGroup != null
+    ? `<b>${curGroup}</b><small>${gIdx + 1} of ${groupList.length}</small>`
+    : `<b>—</b><small>&nbsp;</small>`;
+  $('groupPrev').disabled = gIdx <= 0;
+  $('groupNext').disabled = gIdx < 0 || gIdx >= groupList.length - 1;
+}
+function stepPhase(delta) {
+  const i = phaseList.indexOf(curPhase) + delta;
+  if (i < 0 || i >= phaseList.length) return;
+  curPhase = stickyPhase = phaseList[i];
+  updateGroups();          // heats belong to the phase, so re-derive them
+  loadTable(); syncActiveHeat();
+}
+function stepGroup(delta) {
+  const i = groupList.indexOf(curGroup) + delta;
+  if (i < 0 || i >= groupList.length) return;
+  curGroup = groupList[i];
+  renderNav(); loadTable(); syncActiveHeat();
+}
+$('phasePrev').onclick = () => stepPhase(-1);
+$('phaseNext').onclick = () => stepPhase(+1);
+$('groupPrev').onclick = () => stepGroup(-1);   // up   = previous heat
+$('groupNext').onclick = () => stepGroup(+1);   // down = next heat
+
+// Same four directions from the keyboard, so a whole event can be walked
+// through without leaving the keys used for time entry. Suppressed while a
+// field is focused: there the arrows belong to the field (caret, select,
+// number spin), and stealing them would break entry.
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  const t = e.target;
+  if (t && (t.isContentEditable ||
+      ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName))) return;
+  const step = { ArrowLeft: () => stepPhase(-1), ArrowRight: () => stepPhase(+1),
+                 ArrowUp: () => stepGroup(-1),   ArrowDown: () => stepGroup(+1) }[e.key];
+  if (!step) return;
+  e.preventDefault();
+  step();
+});
 
 // Split-time TT timing: spell out where this event sits on the stopwatch.
 // The Split column looks identical on every event, but under a continuous
@@ -206,13 +326,13 @@ async function renderSplitBanner(splitTiming) {
 }
 
 async function loadTable() {
-  if (!eventId || !$('phase').value) {
+  if (!eventId || !curPhase) {
     $('tbl').tBodies[0].innerHTML = '';
     $('ttSplitBanner').style.display = 'none';
     return;
   }
   const rows = await j('GET',
-    `/api/phase?event_id=${eventId}&phase=${$('phase').value}&group_no=${$('group').value}`);
+    `/api/phase?event_id=${eventId}&phase=${curPhase}&group_no=${curGroup}`);
   const gateTh = Array.from({length: gates}, (_, i) => `<th>G${i+1}</th>`).join('');
   // Split-time TT timing (see lib/tt-timing.js): when the competition has
   // it configured AND we're viewing TT, Time becomes a computed/read-only
@@ -221,7 +341,7 @@ async function loadTable() {
   // Every other phase, and every competition without this configured,
   // behaves exactly as before: Time is entered directly, no Split column.
   const comp = competitions.find(c => c.competition_id === activeCompetitionId);
-  const splitTiming = $('phase').value === 'TT'
+  const splitTiming = curPhase === 'TT'
     && comp?.tt_start_interval_ms != null && comp?.tt_time_shift_ms != null;
   const splitTh = splitTiming ? '<th>Split</th>' : '';
   renderSplitBanner(splitTiming);
@@ -279,7 +399,7 @@ async function loadTable() {
       // Without this it only ever refreshed via a full table reload,
       // which the focus-preserving SSE guard above now suppresses while
       // typing, so it looked stuck until navigating away and back.
-      if (['time_ms', 'split_time_ms'].includes(el.dataset.f) && $('phase').value === 'TT') {
+      if (['time_ms', 'split_time_ms'].includes(el.dataset.f) && curPhase === 'TT') {
         const ttCell = $('tbl').querySelector(`.tt-ref[data-result="${el.dataset.id}"]`);
         if (ttCell) ttCell.textContent = fmt(r.time_ms);
       }
@@ -313,19 +433,18 @@ async function loadTable() {
 }
 
 $('rank').onclick = async () => {
-  const phase = $('phase').value;
   const finish = [...$('tbl').querySelectorAll('input.finish')]
     .filter(i => i.value.trim())
     .sort((a, b) => +a.value - +b.value)
     .map(i => i.dataset.bib);
   try {
-    await j('POST', '/api/rank', { event_id: eventId, phase,
-      group_no: +$('group').value, finish_order: finish });
+    await j('POST', '/api/rank', { event_id: eventId, phase: curPhase,
+      group_no: curGroup, finish_order: finish });
     $('note').textContent = '';
   } catch (e) { $('note').textContent = e.message; }
 };
 $('progress').onclick = async () => {
-  const fromPhase = $('phase').value;
+  const fromPhase = curPhase;
   const nextPhaseGuess = () => {
     const idx = PHASE_ORDER.indexOf(fromPhase);
     // pick the nearest later phase in canonical order that now has rows
@@ -373,20 +492,20 @@ $('official').onclick = async () => {
 };
 $('reload').onclick = loadTable;
 $('print').onclick = () => {
-  if (!eventId || !$('phase').value) { $('note').textContent = 'Select a phase first.'; return; }
-  const url = `/print.html?event_id=${eventId}&phase=${$('phase').value}&group_no=${$('group').value}`;
+  if (!eventId || !curPhase) { $('note').textContent = 'Select a phase first.'; return; }
+  const url = `/print.html?event_id=${eventId}&phase=${curPhase}&group_no=${curGroup}`;
   window.open(url, '_blank');
 };
 // Whole-competition results (every event's final classification), as
 // opposed to the per-heat sheet above. Competition-level, so it follows
 // the active competition rather than the selected event/phase.
 $('printComp').onclick = () => window.open('/print-competition.html', '_blank');
-$('event').onchange = loadPhases;
+$('event').onchange = () => loadPhases();
 
 // notify + fetch: any server-side change triggers a table refresh.
 // 'app-state' (the active competition changed, e.g. from another tab or
 // the Start Here page) reloads the whole page — simplest way to avoid
-// partial-state bugs across the several dependent selects (event, phase,
+// partial-state bugs across the several dependent controls (event, phase,
 // heat) that all derive from which competition is active.
 new EventSource('/api/stream').onmessage = ev => {
   if (ev.data === 'results') {
@@ -422,5 +541,3 @@ loadActiveCompetition();
 </script>
 </body>
 </html>
-
-

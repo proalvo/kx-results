@@ -13,6 +13,7 @@
   select, button, input { font: inherit; padding: .5rem; margin: .3rem 0; width: 100%;
     border-radius: 6px; border: 1px solid #b7c6d4; box-sizing: border-box; }
   button { background: #16324a; color: white; border: none; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
   label { display: block; font-size: .8rem; color: #46647a; margin-top: .8rem; }
   #obsUrl { font-family: ui-monospace, monospace; font-size: .8rem; background: #e8eff5; }
   .mode-row { display: flex; gap: .6rem; margin-top: .5rem; }
@@ -25,6 +26,34 @@
   }
   .now-live strong { color: #16324a; }
   .hint { color: #5a7286; font-size: .85rem; }
+
+  /* ---- Phase / Heat steppers ---------------------------------------
+     Same control as the Phase page, for the same reason: at the desk you
+     step to the adjacent round or the next heat far more often than you
+     jump to an arbitrary one, and on a phone (this page is often run from
+     one, beside the OBS machine) a native select is a modal list to fight
+     with. Phase steps left/right along the competition's order as returned
+     by /api/phases; Heat steps up/down within the phase on show. Ends of a
+     run disable rather than wrap. RESULT is excluded from the phase run —
+     the "Official / Final Result" mode above covers it. */
+  .steppers { display: flex; gap: 1.4rem; flex-wrap: wrap; align-items: flex-start;
+              margin-top: .3rem; }
+  .nav-group > .lbl { display: block; font-size: .8rem; color: #46647a; margin-bottom: .1rem; }
+  .stepper { display: flex; align-items: center; gap: .4rem; }
+  button.step { width: 2.6rem; height: 2.6rem; padding: 0; margin: 0; flex: none;
+                display: inline-flex; align-items: center; justify-content: center;
+                font-size: 1rem; line-height: 1; color: #16324a;
+                background: #fff; border: 1px solid #b7c6d4; border-radius: 6px;
+                cursor: pointer; }
+  button.step:hover:not(:disabled) { background: #e8eff5; }
+  button.step:active:not(:disabled) { background: #d8e5ef; }
+  button.step:disabled { opacity: .3; cursor: default; }
+  .vstack { display: flex; flex-direction: column; gap: .2rem; }
+  .vstack button.step { height: 1.7rem; }
+  .val { min-width: 4.4rem; text-align: center; }
+  .val b { font-size: 1.05rem; display: block; line-height: 1.1; }
+  .val small { display: block; color: #5a7286; font-size: .72rem; }
+  #pickerNote { color: #7a2e2e; font-size: .85rem; min-height: 1.2em; }
 </style>
 </head>
 <body>
@@ -52,10 +81,31 @@ whatever the Chief of Scoring currently has open.</p>
   <label><input type="radio" name="mode" value="heat"> A specific heat's result</label>
 </div>
 <div id="heatPicker" style="display:none">
-  <label>Phase</label>
-  <select id="selPhase"></select>
-  <label>Heat</label>
-  <select id="selGroup"></select>
+  <div class="steppers">
+    <div class="nav-group">
+      <span class="lbl">Phase</span>
+      <div class="stepper">
+        <button class="step" id="phasePrev" type="button"
+                aria-label="Previous phase" title="Previous phase (←)">&#9664;</button>
+        <span class="val" id="phaseVal" aria-live="polite"><b>—</b><small>&nbsp;</small></span>
+        <button class="step" id="phaseNext" type="button"
+                aria-label="Next phase" title="Next phase (→)">&#9654;</button>
+      </div>
+    </div>
+    <div class="nav-group">
+      <span class="lbl">Heat</span>
+      <div class="stepper">
+        <span class="val" id="groupVal" aria-live="polite"><b>—</b><small>&nbsp;</small></span>
+        <span class="vstack">
+          <button class="step" id="groupPrev" type="button"
+                  aria-label="Previous heat" title="Previous heat (↑)">&#9650;</button>
+          <button class="step" id="groupNext" type="button"
+                  aria-label="Next heat" title="Next heat (↓)">&#9660;</button>
+        </span>
+      </div>
+    </div>
+  </div>
+  <div id="pickerNote"></div>
 </div>
 
 <button id="setLiveBtn" type="button">Show this on the Results stream</button>
@@ -83,9 +133,24 @@ $('copyBtn').onclick = async () => {
 function modeValue() { return document.querySelector('input[name=mode]:checked').value; }
 document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => {
   $('heatPicker').style.display = modeValue() === 'heat' ? 'block' : 'none';
+  updateSetLiveEnabled();
 });
 
+// Phase/heat selection state. It used to live in the two <select> elements'
+// .value (with the phase list stashed in a data-groups attribute); with
+// steppers there is no element holding it, so it is held here and the
+// buttons render from it.
 let eventsCache = [];
+let phaseRows = [];      // [{ phase, group_no }, ...] for the selected event
+let phaseList = [];      // distinct phases, in competition order, minus RESULT
+let groupList = [];      // heats of curPhase, ascending
+let curPhase = null;     // string | null
+let curGroup = null;     // number | null
+// Last phase actually chosen, kept separately from curPhase so that passing
+// through an event with no start lists yet (curPhase goes null) doesn't
+// forget the round being worked on.
+let stickyPhase = null;
+
 async function loadCompetitions() {
   const comps = await j('GET', '/api/competitions');
   $('selComp').innerHTML = comps.map(c =>
@@ -93,7 +158,6 @@ async function loadCompetitions() {
   await loadEvents();
   $('selComp').onchange = loadEvents;
   $('selEvent').onchange = loadPhaseOptions;
-  $('selPhase').onchange = loadGroupOptions;
 }
 async function loadEvents() {
   eventsCache = await j('GET', `/api/events?competition_id=${$('selComp').value}`);
@@ -103,27 +167,97 @@ async function loadEvents() {
   await refreshNowLive();
 }
 async function loadPhaseOptions() {
-  if (!$('selEvent').value) { $('selPhase').innerHTML = ''; return; }
-  const ps = await j('GET', `/api/phases?event_id=${$('selEvent').value}`);
-  const phases = [...new Set(ps.map(p => p.phase))].filter(p => p !== 'RESULT');
-  $('selPhase').innerHTML = phases.map(p => `<option>${p}</option>`).join('');
-  $('selPhase').dataset.groups = JSON.stringify(ps);
-  await loadGroupOptions();
+  if (!$('selEvent').value) {
+    phaseRows = []; phaseList = []; curPhase = null; updateGroups(); return;
+  }
+  phaseRows = await j('GET', `/api/phases?event_id=${$('selEvent').value}`);
+  // /api/phases already returns TT, Q, RQ, QF, SF, F, RESULT in that order,
+  // which is what makes "previous"/"next" mean the adjacent round.
+  phaseList = [...new Set(phaseRows.map(p => p.phase))].filter(p => p !== 'RESULT');
+  // Stay on the same round when switching events — the common move is
+  // comparing the same phase across events, not restarting at TT.
+  curPhase = phaseList.includes(stickyPhase) ? stickyPhase : (phaseList[0] ?? null);
+  if (curPhase) stickyPhase = curPhase;
+  updateGroups();
 }
-async function loadGroupOptions() {
-  const ps = JSON.parse($('selPhase').dataset.groups || '[]');
-  const gs = ps.filter(p => p.phase === $('selPhase').value).map(p => p.group_no);
-  $('selGroup').innerHTML = gs.map(g => `<option>${g}</option>`).join('');
+function updateGroups() {
+  const prevGroup = curGroup;
+  groupList = phaseRows.filter(p => p.phase === curPhase).map(p => p.group_no);
+  curGroup = groupList.includes(prevGroup) ? prevGroup : (groupList[0] ?? null);
+  renderNav();
 }
+
+// Both readouts carry an "n of m" line: with no dropdown to open there is
+// otherwise nothing that says how many rounds or heats exist, and a
+// disabled button on its own reads as "broken" rather than "you are at
+// the end".
+function renderNav() {
+  const pIdx = phaseList.indexOf(curPhase);
+  $('phaseVal').innerHTML = curPhase
+    ? `<b>${curPhase}</b><small>${pIdx + 1} of ${phaseList.length}</small>`
+    : `<b>—</b><small>&nbsp;</small>`;
+  $('phasePrev').disabled = pIdx <= 0;
+  $('phaseNext').disabled = pIdx < 0 || pIdx >= phaseList.length - 1;
+
+  const gIdx = groupList.indexOf(curGroup);
+  $('groupVal').innerHTML = curGroup != null
+    ? `<b>${curGroup}</b><small>${gIdx + 1} of ${groupList.length}</small>`
+    : `<b>—</b><small>&nbsp;</small>`;
+  $('groupPrev').disabled = gIdx <= 0;
+  $('groupNext').disabled = gIdx < 0 || gIdx >= groupList.length - 1;
+
+  $('pickerNote').textContent = curPhase ? ''
+    : 'This event has no heats yet — nothing to put on the overlay.';
+  updateSetLiveEnabled();
+}
+// A heat can only be streamed once it exists. Guarding here rather than at
+// the PATCH keeps the overlay from being pointed at a null phase, which
+// would blank it mid-broadcast.
+function updateSetLiveEnabled() {
+  $('setLiveBtn').disabled = modeValue() === 'heat' && !curPhase;
+}
+function stepPhase(delta) {
+  const i = phaseList.indexOf(curPhase) + delta;
+  if (i < 0 || i >= phaseList.length) return;
+  curPhase = stickyPhase = phaseList[i];
+  updateGroups();          // heats belong to the phase, so re-derive them
+}
+function stepGroup(delta) {
+  const i = groupList.indexOf(curGroup) + delta;
+  if (i < 0 || i >= groupList.length) return;
+  curGroup = groupList[i];
+  renderNav();
+}
+$('phasePrev').onclick = () => stepPhase(-1);
+$('phaseNext').onclick = () => stepPhase(+1);
+$('groupPrev').onclick = () => stepGroup(-1);   // up   = previous heat
+$('groupNext').onclick = () => stepGroup(+1);   // down = next heat
+
+// Same four directions from the keyboard, but only while the heat picker is
+// actually on show and no field is focused — there the arrows belong to the
+// field (caret, select) and stealing them would break it.
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (modeValue() !== 'heat') return;
+  const t = e.target;
+  if (t && (t.isContentEditable ||
+      ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName))) return;
+  const step = { ArrowLeft: () => stepPhase(-1), ArrowRight: () => stepPhase(+1),
+                 ArrowUp: () => stepGroup(-1),   ArrowDown: () => stepGroup(+1) }[e.key];
+  if (!step) return;
+  e.preventDefault();
+  step();
+});
 
 $('setLiveBtn').onclick = async () => {
   const mode = modeValue();
+  if (mode === 'heat' && !curPhase) return;
   await j('PATCH', '/api/stream-state', {
     stream_key: 'results',
     event_id: $('selEvent').value,
     mode,
-    phase: mode === 'heat' ? $('selPhase').value : null,
-    group_no: mode === 'heat' ? +$('selGroup').value : null,
+    phase: mode === 'heat' ? curPhase : null,
+    group_no: mode === 'heat' ? curGroup : null,
   });
   await refreshNowLive();
 };
