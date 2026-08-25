@@ -2,7 +2,7 @@
 
 ¨kx-results` is 99.9% developed by AI, mainly with Claude.
 
-How to pack codebase to AI friedly format:
+## How to pack codebase to AI friedly format:
 
 **kx-server**
 ```
@@ -18,7 +18,7 @@ sudo chmod 666 kx-web-codebase.txt
 find html/kx-results \( -name "*.php" \) -print -exec sh -c 'echo "=== FILE: $1 ==="; cat "$1"; echo' _ {} \; > kx-web-codebase.txt
 find kx-web-app \( -name "*.php" -o -name "*.sql" \) -print -exec sh -c 'echo "=== FILE: $1 ==="; cat "$1"; echo' _ {} \; >> kx-web-codebase.txt
 ```
-**Running tests**
+## Running tests
 
 Test everything
 ```
@@ -32,8 +32,8 @@ node --test test/tt-continuous-clock.test.js
 ```
 
 
-**Random commands**
-Occtionally I ahve a need to find files that have been updated after the give date: 
+## Random commands
+Occationally I have a need to find files that have been updated after the given date: 
 ```
 find . -newermt "2026-08-02" 
 ```
