@@ -8,6 +8,8 @@ Start lists and results can be printed as PDF, and results sync easily to a publ
 
 ***Fast water. Fast results.***
 
+![KX-Results main screen](images/kx-server-index.png) 
+
 ## Features
 
 - Create unlimited competitions with unlimited events
