@@ -93,45 +93,55 @@
   "final_result": [
     {
       "base_rank": 1,
-      "from": [
-        { "phase": "F", "group": 1, "rank": 1 }
-      ]
+      "from": [ { "phase": "F", "group": 1, "rank": 1 } ]
     },
     {
       "base_rank": 2, 
-      "from": [ 
-        { "phase": "F", "group": 1, "rank": 2 }
-      ]
+      "from": [ { "phase": "F", "group": 1, "rank": 2 } ]
     },
     {
       "base_rank": 3,
-      "from": [ 
-        { "phase": "F", "group": 1, "rank": 3 }
-      ]
+      "from": [ { "phase": "F", "group": 1, "rank": 3 } ]
     },
     {
       "base_rank": 4,
-      "from": [
-        { "phase": "F", "group": 1, "rank": 4 }
-      ]
+      "from": [ { "phase": "F", "group": 1, "rank": 4 } ]
     },
     {
       "base_rank": 5, 
-      "from": [ 
-        { "phase": "F", "group": 2, "rank": 1 }
-      ]
+      "from": [ { "phase": "F", "group": 2, "rank": 1 } ]
     },
     {
-      "base_rank": 6,
-      "from": [
-        { "phase": "F", "group": 2, "rank": 2 }
-      ]
+      "base_rank": 6, 
+      "from": [ { "phase": "F", "group": 2, "rank": 2 } ]
     },
     {
       "base_rank": 7,
-      "from": [
-        { "phase": "F", "group": 2, "rank": 3 }
-      ]
-    }    
+      "from": [ { "phase": "F", "group": 2, "rank": 3 } ]
+    },
+    {
+      "base_rank": 8,
+      "from": [ { "phase": "F", "group": 2, "rank": 3 } ]
+    },    
+    {
+    "base_rank": 9,
+    "order_by": "tt_time",
+    "from": [
+      {"phase": "Q", "group": 1, "rank": 3},
+      {"phase": "Q", "group": 2, "rank": 3}
+    ]
+  },
+    {
+    "base_rank": 10,
+    "order_by": "tt_time",
+    "from": [
+      {"phase": "Q", "group": 1, "rank": 3},
+      {"phase": "Q", "group": 2, "rank": 3}
+    ]
+  },    
+    {
+      "base_rank": 11,
+      "from": [ { "phase": "Q", "group": 2, "rank": 4 } ]
+    },    
   ]
 }
