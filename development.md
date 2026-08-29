@@ -2,7 +2,7 @@
 
 ¨kx-results` is 99.9% developed by AI, mainly with Claude.
 
-## How to pack codebase to AI friedly format:
+## How to pack codebase to AI friendly format:
 
 **kx-server**
 ```
