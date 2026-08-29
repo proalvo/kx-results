@@ -12,21 +12,21 @@ TIME TRIAL (TT)
 
       │────────────────────────────────┐
       ▼                                ▼
-QUALIFICATION 1 (Q1)          QUALIFICATION 2 (Q2)
-─────────────────             ─────────────────
-Slot 1 ← TT 5                 Slot 1 ← TT 6 
-Slot 2 ← TT 8                 Slot 2 ← TT 7 
-Slot 3 ← TT 9                 Slot 3 ← TT 10
-                              Slot 4 ← TT 11
+QUALIFICATION 1 (Q1)           QUALIFICATION 2 (Q2)
+─────────────────              ─────────────────
+Slot 1 ← TT 5                  Slot 1 ← TT 6 
+Slot 2 ← TT 8                  Slot 2 ← TT 7 
+Slot 3 ← TT 9                  Slot 3 ← TT 10
+                               Slot 4 ← TT 11
 
       ┌────────────────┴───────────────┐
       ▼                                ▼
 SEMI-FINAL 1 (SF1)             SEMI-FINAL 2 (SF2)
 ──────────────────             ──────────────────
-Slot 1 ← TT 1                  Slot 1 ← TT 2  → Slot 1
-Slot 2 ← TT 4                  Slot 2 ← TT 3  → Slot 2
-Slot 3 ← Q1 1                  Slot 3 ← Q2 1  → Slot 3
-Slot 4 ← Q2 2                  Slot 4 ← Q1 2  → Slot 4
+Slot 1 ← TT 1                  Slot 1 ← TT 2
+Slot 2 ← TT 4                  Slot 2 ← TT 3
+Slot 3 ← Q1 1                  Slot 3 ← Q2 1
+Slot 4 ← Q2 2                  Slot 4 ← Q1 2
 
       ┌────────────────┴───────────────┐
       ▼
