@@ -1,4 +1,4 @@
-# Event with 11 athletes
+# Event with 11 athletes, including B-final
 
 File: [rule_SMSL2023_11-athletes.json](rule_SMSL2023_11-athletes.json)
 
