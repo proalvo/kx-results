@@ -149,15 +149,7 @@
       {"phase": "Q", "group": 1, "rank": 3},
       {"phase": "Q", "group": 2, "rank": 3}
     ]
-  },
-    {
-    "base_rank": 10,
-    "order_by": "tt_time",
-    "from": [
-      {"phase": "Q", "group": 1, "rank": 3},
-      {"phase": "Q", "group": 2, "rank": 3}
-    ]
-  },    
+    }, 
     {
       "base_rank": 11,
       "from": [ { "phase": "Q", "group": 2, "rank": 4 } ]
