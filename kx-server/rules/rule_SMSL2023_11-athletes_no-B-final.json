@@ -1,6 +1,6 @@
 {
-  "rule_name": "SMSL 2023, 11 athletes, B final",
-  "description": "TT > Q x2 (top 4 bye to SF) > SF x2 > F, including B final",
+  "rule_name": "SMSL 2023, 11 athletes, no B final",
+  "description": "TT > Q x2 (top 4 bye to SF) > SF x2 > F, no B final",
   "min_athletes": 11,
   "max_athletes": 11,
   "progression": [
@@ -89,26 +89,10 @@
     {
       "from": {"phase": "SF", "group": 2, "rank": 2},
       "to": {"phase": "F", "group": 1, "slot": 4}
-    },
-
-    
-    {
-      "from": {"phase": "SF", "group": 1, "rank": 3},
-      "to": {"phase": "F", "group": 2, "slot": 1}
-    },
-    {
-      "from": {"phase": "SF", "group": 2, "rank": 3},
-      "to": {"phase": "F", "group": 2, "slot": 2}
-    },
-    {
-      "from": {"phase": "SF", "group": 1, "rank": 4},
-      "to": {"phase": "F", "group": 2, "slot": 3}
-    },
-    {
-      "from": {"phase": "SF", "group": 2, "rank": 4},
-      "to": {"phase": "F", "group": 2, "slot": 4}
-    }
+    }    
   ],
+
+  
   "final_result": [
     {
       "base_rank": 1,
@@ -126,33 +110,38 @@
       "base_rank": 4,
       "from": [ { "phase": "F", "group": 1, "rank": 4 } ]
     },
+
+
     {
-      "base_rank": 5, 
-      "from": [ { "phase": "F", "group": 2, "rank": 1 } ]
-    },
-    {
-      "base_rank": 6, 
-      "from": [ { "phase": "F", "group": 2, "rank": 2 } ]
-    },
+      "base_rank": 5,
+      "order_by": "tt_time",
+      "from": [
+        {"phase": "SF", "group": 1, "rank": 3},
+        {"phase": "SF", "group": 2, "rank": 3}
+      ]
+    },     
     {
       "base_rank": 7,
-      "from": [ { "phase": "F", "group": 2, "rank": 3 } ]
-    },
-    {
-      "base_rank": 8,
-      "from": [ { "phase": "F", "group": 2, "rank": 4 } ]
+      "order_by": "tt_time",
+      "from": [
+        {"phase": "SF", "group": 1, "rank": 4},
+        {"phase": "SF", "group": 2, "rank": 4}
+      ]
     },    
+
+    
     {
-    "base_rank": 9,
-    "order_by": "tt_time",
-    "from": [
-      {"phase": "Q", "group": 1, "rank": 3},
-      {"phase": "Q", "group": 2, "rank": 3}
-    ]
+      "base_rank": 9,
+      "order_by": "tt_time",
+      "from": [
+        {"phase": "Q", "group": 1, "rank": 3},
+        {"phase": "Q", "group": 2, "rank": 3}
+      ]
     }, 
     {
       "base_rank": 11,
       "from": [ { "phase": "Q", "group": 2, "rank": 4 } ]
     }
+
   ]
 }
