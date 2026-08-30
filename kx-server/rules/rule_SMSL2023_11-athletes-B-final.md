@@ -3,6 +3,7 @@
 File: [rule_SMSL2023_11-athletes.json](rule_SMSL2023_11-athletes.json)
 
 - Qalification > Semi-Final > Final
+- TT: top 4 bye to SF
 - A and B finals 
 
 ```
