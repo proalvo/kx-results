@@ -7,7 +7,7 @@ Tee seuraavasti:
 ## 1.Tee lähtölistat
 
 Tee lähtölistat starttiin.fi:ssä.
-  - Tee jokaiselle sarjalle oma lähtölista. Nimeä lähtölistat SMSL sääntöjen mukaisilla luokkkien nimillä (MX1, WX1, MX45, WX45 jne.).
+  - Tee jokaiselle sarjalle oma lähtölista. Nimeä lähtölistat SMSL sääntöjen mukaisilla luokkien nimillä (MX1, WX1, MX45, WX45 jne.).
   - Arvo lähtöjärjestys
   - Laita kilpailunumerot
   - Tee lähtölistasta julkinen
