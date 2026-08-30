@@ -90,7 +90,8 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 
 ## Roadmap
 
-- possible to time schedule of the competiion
+- Setup to publish results in Internet is too compicated now (requires manual work from the host of the *kx-web*) - this could be done in self-service.
+- possible to set time schedule of the competiion
 - "review" state for faults in public views/streaming.
 - export results to the CSV file
 - CAPITALISE surname
