@@ -60,7 +60,14 @@ Example of the one row without icf_id and nf_id:
 
 ## Leaderboard
 
-Leaderboard provides event status in one screen. Application provide a carusel to show all event one after another. Use 24" monitor or bigger and set the browser to full screen (If you are using the Chrome, press F11).
+The Leaderboard provides the current event status at a glance on a single screen. The application includes a carousel that automatically displays all events one after another.
+
+For the best viewing experience, use a 24" monitor or larger and set your browser to full-screen mode. In Chrome, press F11 to enter full-screen mode.
+
+If you are running a smaller competition, you can increase or decrease the font size using Ctrl + mouse wheel:
+
+- Hold Ctrl and scroll the mouse wheel up to make the text larger.
+- Hold Ctrl and scroll down to make the text smaller.
 
 URL:
 ```
