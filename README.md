@@ -26,14 +26,15 @@ Main screen to orgestrate the compeition:
 
 1. Install [node](https://nodejs.org/) to your computer. This has been tested with Linux/Mint but 'should' work with Windows also, maybe even with Apple.
 2. Download this zip-file from Google Drive [kx-server.zip](https://drive.google.com/file/d/1G6PX_RlTg6paHmjFBTSN9VG4PY70nzPV/view?usp=drive_link)
-3. Extrat files to your computer. 
+3. Extract files to your computer disk. 
 4. Open the terminal software in your computer and go to the *kx-server* directory
-5. Start the software with command `ǹode server.js` *). Empty database for the competition is created also - without rules (see installation step #7).
+5. Start the software with command `ǹode server.js`. Empty database for the competition is created also - without rules (see installation step #7).
 6. Open your web browser and enter `http://localhost:3000` as an address. Everything should look good now, but without any competition data, and no rules.
 7. Stop the software by pressing Crtl+C.
-8. Upload pre-defined rules from rules archive `node scripts/upload-rules.js`.  
+8. Upload pre-defined rules from rules archive with command `node scripts/upload-rules.js`.
+9. Start again the software `http://localhost:3000` - now you are ready run your first competiton.
 
-*) You can give the database and port as command line parameters, e.g. `node server.js test.db 3001`. You cannot omit the database part if you want to use other database than default, which is *kx.db*.
+Hint! You can give the database and port as command line parameters, e.g. `node server.js test.db 3001`. You cannot omit the database part if you want to use other database than default, which is *kx.db*. This is great way to create the database for the testing and learning purposes.
 
 ## How to upload athletes
 
@@ -47,10 +48,15 @@ See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are r
 Format: ```event;bib;first_name;last_name;club;country;icf_id;nf_id```
 - *event* is the event code (e.g. KXM)
 - *bib*; the bib can be text or number
+- *first_name*
+- *last_name*
 - *club*; club name
 - *country*; 3 letter country code (e.g. FIN)
 - *icf_id*; (optional) this is ICF's ID for athlete, which is provided by [Sports Data Platform](https://www.canoeicf.com/sports-data-platform)
 - *nf_id*; (optional) this is national ID for the athlete, e.g. Sportti ID in Finland. 
+
+Example of the one row without icf_id and nf_id:
+`MX1;1;Joh;Smith;Whitewater Canoeing Finland;FIN;;`
 
 ## Leaderboard
 
