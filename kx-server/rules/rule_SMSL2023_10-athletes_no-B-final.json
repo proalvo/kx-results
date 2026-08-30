@@ -59,12 +59,12 @@
       "to": {"phase": "SF", "group": 2, "slot": 3}
     },
     {
-      "from": {"phase": "Q", "group": 1, "rank": 2},
+      "from": {"phase": "Q", "group": 2, "rank": 2},
       "to": {"phase": "SF", "group": 1, "slot": 4}
     },
 
     {
-      "from": {"phase": "Q", "group": 2, "rank": 2},
+      "from": {"phase": "Q", "group": 1, "rank": 2},
       "to": {"phase": "SF", "group": 2, "slot": 4}
     },
 
