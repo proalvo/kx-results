@@ -3,6 +3,7 @@
 File: [rule_SMSL2023_10-athletes_B-final.json](rule_SMSL2023_10-athletes_B-final.json)
 
 - Qalification > Semi-Final > Final
+- Time Trial: top 4 bye to SF
 - A and B finals 
 
 ```
