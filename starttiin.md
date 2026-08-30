@@ -17,11 +17,11 @@ Tee lähtölistat starttiin.fi:ssä.
 ## 2. Hae koodit 
 
 Katso kilpailun *raceId* ja *API-avain* starttiin.fi:n valikon kohdasta API-AVAIN
-  - *raceId* on palvelun linkissä oleva kryptinen merkkisarja: `https://www.starttiin.fi/edit-race/00e110bi3fb/starts`
+  - *raceId* on palvelun linkissä oleva kryptinen merkkisarja: `https://www.starttiin.fi/edit-race/00e110bi3fb/starts`, eli tässä esimerkissä tuo `00e110bi3fb`.
 
 ## 3.Perusta kilpailusarjat 
 
-Tee *kx-reusults*issa vastaavat sarjat kuin lähtölistassa
+Tee *kx-results*issa vastaavat sarjat kuin lähtölistassa
   - Laita **Code** kenttään lähtölistan mukaisesti MX1, WX1, jne.
     
 ![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-event-code.png "Sarjan perustaminen")
