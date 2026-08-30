@@ -90,20 +90,17 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 
 ## Roadmap
 
-- Events are listed in alphabetical order by code (e.g. KXM is 1st, KXN is 2nd). Results manager should set the order of the events.
 - possible to time schedule of the competiion
 - "review" state for faults in public views/streaming.
 - export results to the CSV file
 - CAPITALISE surname
 - first_name_initial should be without dot (.)
-- Graphics for the live streaming can be modified easier. 
-  
+- Graphics for the live streaming can be modified easier.
+- It should be possible to delete a rule. This is mainly to clean rules with errors when developing a ruleset.  
 
 ## Knows bugs or features that require improvement
 
--  ~~Major: If an event is deleted, it is not deleted from the kx-web.~~
 - Minor: Date format should be according to location (country) of the competition, now weekdays start from Sunday and date/time format is 7/31/2026 8:42:11 PM.
 - Medium: Occationally the software can be slow - it may take several seconds when you click the menu item. Good things is that it always works, but it can be annoying or confusing when you do not get immediate respond. Reason for the slow actions is unknown at the moment.
-
 
 
