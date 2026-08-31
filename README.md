@@ -90,11 +90,13 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 
 ## Roadmap
 
-- Move list of competitions from Setup page to Start page. This improves usability.
+- Usability improvement:Move list of competitions from Setup page to Start page. This improves usability.
+- Usability improvement: You can use Enter to move to next row when inputting Time and Finish, except in last row - you need to use tab to move aways from the active field. It should accept Enter in last row also.
+- Usability improvement: Adjust input field lengths.
 - Setup to publish results in Internet is too compicated now (requires manual work from the host of the *kx-web*) - this could be done in self-service.
-- possible to set time schedule of the competiion
+- Possible to set time schedule of the competiion
 - "review" state for faults in public views/streaming.
-- export results to the CSV file
+- Export results to the CSV file
 - CAPITALISE surname
 - first_name_initial should be without dot (.)
 - Graphics for the live streaming can be modified easier.
