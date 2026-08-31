@@ -90,6 +90,7 @@ kx-results has integration to [startiin.fi](https://startiin.fi) to import athle
 
 ## Roadmap
 
+- Move list of competitions from Setup page to Start page. This improves usability.
 - Setup to publish results in Internet is too compicated now (requires manual work from the host of the *kx-web*) - this could be done in self-service.
 - possible to set time schedule of the competiion
 - "review" state for faults in public views/streaming.
