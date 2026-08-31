@@ -25,14 +25,14 @@ Main screen to orgestrate the compeition:
 ## How to install and use the software
 
 1. Install [node](https://nodejs.org/) to your computer. This has been tested with Linux/Mint but 'should' work with Windows also, maybe even with Apple.
-2. Download this zip-file from Google Drive [kx-server.zip](https://drive.google.com/file/d/1G6PX_RlTg6paHmjFBTSN9VG4PY70nzPV/view?usp=drive_link)
-3. Extract files to your computer disk. 
-4. Open the terminal software in your computer and go to the *kx-server* directory
-5. Start the software with command `ǹode server.js`. Empty database for the competition is created also - without rules (see installation step #7).
-6. Open your web browser and enter `http://localhost:3000` as an address. Everything should look good now, but without any competition data, and no rules.
-7. Stop the software by pressing Crtl+C.
-8. Upload pre-defined rules from rules archive with command `node scripts/upload-rules.js`.
-9. Start again the software `http://localhost:3000` - now you are ready run your first competiton.
+2. Download this zip-file from Google Drive  [kx-server.zip](https://drive.google.com/file/d/183KX86Cx49l5AhEFrWsaoJjoRE3zYqfy/view?usp=sharing)
+5. Extract files to your computer disk. 
+6. Open the terminal software in your computer and go to the *kx-server* directory
+7. Start the software with command `ǹode server.js`. Empty database for the competition is created also - without rules (see installation step #7).
+8. Open your web browser and enter `http://localhost:3000` as an address. Everything should look good now, but without any competition data, and no rules.
+9. Stop the software by pressing Crtl+C.
+10. Upload pre-defined rules from rules archive with command `node scripts/upload-rules.js`.
+11. Start again the software `http://localhost:3000` - now you are ready run your first competiton.
 
 Hint! You can give the database and port as command line parameters, e.g. `node server.js test.db 3001`. You cannot omit the database part if you want to use other database than default, which is *kx.db*. This is great way to create the database for the testing and learning purposes.
 
