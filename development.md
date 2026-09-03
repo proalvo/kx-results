@@ -5,8 +5,8 @@
 ## How to pack codebase to AI friendly format:
 
 **kx-server**
-```
 cd {your directory for the kx-server.js}
+```
 find .  \( -name "*.js" -o -name "*.json" -o -name "*.html" -o -name "*.sql" \) -print -exec sh -c 'echo "=== FILE: $1 ==="; cat "$1"; echo' _ {} \; > kx-server-codebase.txt
 ```
 
