@@ -1,36 +1,35 @@
-# Event with 9 athletes, B-final 
+# Event with 9 athletes, with B-final
 
-File: [rule_SMSL2023_9-athletes_B-final.json](rule_SMSL2023_9-athletes_B-final.json)
+File: [rule_SMSL2023_9-athletes-B-final.json](rule_SMSL2023_9-athletes-B-final.json)
 
-- Qalification > Semi-Final > Final
-- Time Trial: top 5 bye to SF
-- A and B finals 
+- Qalification x1 > Semi-Final x2 > Final A & B
+- TT: top 5 bye to SF
+- A and B finals
 
 ```
-
 TIME TRIAL (TT)
-  Rank 1–10
+  Rank 1–9
 
       │
-      ▼  
-QUALIFICATION 1 (Q1) 
-───────────────── 
-Slot 1 ← TT 6
-Slot 2 ← TT 7
-Slot 3 ← TT 8
+      ▼                                ▼
+QUALIFICATION 1 (Q1)          
+─────────────────             
+Slot 1 ← TT 6 (Rank 1 Q)      
+Slot 2 ← TT 7 (Rank 2 Q)      
+Slot 3 ← TT 8 (Rank 3 Q)
 Slot 4 ← TT 9
 
       │────────────────────────────────┐
       ▼                                ▼
 SEMI-FINAL 1 (SF1)             SEMI-FINAL 2 (SF2)
 ──────────────────             ──────────────────
-TT 1  → Slot 1                 TT 2  → Slot 1
-TT 4  → Slot 2                 TT 3  → Slot 2
-Q1 1  → Slot 3                 Q2 1  → Slot 3
-Q2 2  → Slot 4                 Q1 2  → Slot 4
+Slot 1 ← TT 1                  Slot 1 ← TT 2
+Slot 2 ← TT 4                  Slot 2 ← TT 3
+Slot 3 ← TT 5                  Slot 3 ← Q1 1
+Slot 4 ← Q1 3                  Slot 4 ← Q1 2
 
       ┌────────────────┴───────────────┐
-      ▼
+      ▼                                ▼
 FINAL 1 (F1)                   FINAL 2 (F2)
 ─────────────────              ─────────────────
 Slot 1 ← SF1 1st               Slot 1 ← SF1 3rd
@@ -49,6 +48,10 @@ RESULT
 5  ← F2 1st
 6  ← F2 2nd
 7  ← F2 3rd 
+8  ← F2 4th
+9  ← Q1 4th 
+
+```
 8  ← F2 4th
 9  ← Q1 4th
 
