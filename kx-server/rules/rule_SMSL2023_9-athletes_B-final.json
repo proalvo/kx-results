@@ -1,6 +1,6 @@
 {
   "rule_name": "SMSL 2023, 9 athletes, B final",
-  "description": "TT (top 5 bye to SF) > Q x2 > SF x2 > F, including B final",
+  "description": "TT (top 5 bye to SF) > Q > SF x2 > F, including B final",
   "min_athletes": 9,
   "max_athletes": 9,
   "progression": [
@@ -132,6 +132,6 @@
     {
       "base_rank": 9,
       "from": [ { "phase": "Q", "group": 1, "rank": 4 } ]
-    },  
+    }
   ]
 }
