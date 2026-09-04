@@ -1,6 +1,6 @@
 # Event with 9 athletes, with B-final
 
-File: [rule_SMSL2023_9-athletes-B-final.json](rule_SMSL2023_9-athletes-B-final.json)
+File: [rule_SMSL2023_9-athletes-B_final.json](rule_SMSL2023_9-athletes_B-final.json)
 
 - Qalification x1 > Semi-Final x2 > Final A & B
 - TT: top 5 bye to SF
