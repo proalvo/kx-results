@@ -1,5 +1,5 @@
 {
-  "rule_name": "SMSL 2023, 9 athletes, B final",
+  "rule_name": "SMSL 2023, 9 athletes, no B final",
   "description": "TT (top 5 bye to SF) > Q > SF > F, no B final",
   "min_athletes": 9,
   "max_athletes": 9,
