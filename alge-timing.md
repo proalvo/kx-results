@@ -8,9 +8,35 @@ Requirements:
   - If Timy is connected to directly to the PC with USB cable, you need to install Alge's driver.
   - If Timy is connected to the PC with RS232-USB adapter, then the Timy is recognized automatically - just use "connect anyway" to connect.
  
+## Reference documentation
+
+https://alge-timing.com/downloads/userGuides/Timy3-Allgemein-BE.pdf
+ 
 ## Installation
 
-Text coming soon.
+Software for the Timy is inluced in the ZIP file if you copy kx-server software from the Github.
+
+Installation:
+
+```
+cd {your document root}/kx-server/timy-bridge/
+npm install
+```
+You might get warnings when running the install command. However, the software should work anyhow. If you want to make follow insturction.
+
+You are ready now. Start to software normally
+
+
+```Windows
+cd {your document root}/kx-server
+node server.js
+```
+NOTE! if you are running the software on Linux computer, you must start the software as super user, otherwise the siftware does not have permission to acces the USB/serial port. Use `sudo` start the software.
+
+```Linux
+cd {your document root}/kx-server
+sude node server.js
+```
 
 
 ## Configuration
