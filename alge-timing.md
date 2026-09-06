@@ -1,12 +1,12 @@
 # Alge-Timing Timy(3)
 
-This is experimental feature made in 9/2026- you should test before using it.
+This is an experimental feature made in 9/2026. You should test before using it.
 
 Requirements:
-- You need Alge Timing's Timy3. It might work with older versions also-
+- You need Alge Timing's Timy3. It might work with older versions also.
 - Timy3 is connected to the PC with USB cable or RS232-USC adapter.
-  - If Timy is connected to directly to the PC with USB cable, you need to install Alge's driver.
-  - If Timy is connected to the PC with RS232-USB adapter, then the Timy is recognized automatically - just use "connect anyway" to connect.
+  - If the Timy is connected to directly to the PC with USB cable, you need to install Alge's driver.
+  - If the Timy is connected to the PC with RS232-USB adapter, then the Timy is not recognized automatically - just use "connect anyway" to connect.
  
 ## Reference documentation
 
@@ -22,7 +22,7 @@ Installation:
 cd {your document root}/kx-server/timy-bridge/
 npm install
 ```
-You might get warnings when running the install command. However, the software should work anyhow. Follow the insturctios to if you want to mak sure that the softare is latest.
+You might get warnings when running the install command. However, the software should work anyhow. Follow the instructions if you want to make sure that the softare is latest.
 
 You are ready now. Start to software normally
 
@@ -31,7 +31,7 @@ Windows:
 cd {your document root}/kx-server
 node server.js
 ```
-NOTE! if you are running the software on Linux computer, you must start the software as super user, otherwise the siftware does not have permission to acces the USB/serial port. Use `sudo` start the software.
+NOTE! if you are running the software on a Linux computer, you must start the software as a super user, otherwise the software does not have permissions to access the USB/serial port. Use `sudo` to start the software.
 
 Linux:
 ```Linux
@@ -39,11 +39,10 @@ cd {your document root}/kx-server
 sude node server.js
 ```
 
-
 ## Configuration
 
-Text coming soon.
+Setup page have instruction to connect to the Timy.
 
 ## How to use
 
-Text coming soon.
+Go to the Page page, and start the Time Trial. Accept valid timestamps.
