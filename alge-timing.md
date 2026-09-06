@@ -22,17 +22,18 @@ Installation:
 cd {your document root}/kx-server/timy-bridge/
 npm install
 ```
-You might get warnings when running the install command. However, the software should work anyhow. If you want to make follow insturction.
+You might get warnings when running the install command. However, the software should work anyhow. Follow the insturctios to if you want to mak sure that the softare is latest.
 
 You are ready now. Start to software normally
 
-
+Windows:
 ```Windows
 cd {your document root}/kx-server
 node server.js
 ```
 NOTE! if you are running the software on Linux computer, you must start the software as super user, otherwise the siftware does not have permission to acces the USB/serial port. Use `sudo` start the software.
 
+Linux:
 ```Linux
 cd {your document root}/kx-server
 sude node server.js
