@@ -86,7 +86,7 @@ You can use second computer to show the leaderboard, then use an IP address of t
 
 ### Alge-Timing Timy(3)
 
-*kx-results* has an integration to Alge-Timing's Timy3. This is experimental feature and should be tested before using in the compeition.
+*kx-results* has an integration to Alge-Timing's Timy3. This is an experimental feature and should be tested before using in the competition.
 
 - [Instructions for the Timy3](alge-timing.md)
 
