@@ -84,7 +84,16 @@ You can use second computer to show the leaderboard, then use an IP address of t
 
 ## Integrations
 
-kx-results has integration to [startiin.fi](https://startiin.fi) to import athletes. Starttiin.fi is system by [Finnish Rowing and Canoing Federation](https://melontajasoutuliitto.fi).
+### Alge-Timing Timy(3)
+
+*kx-results* has an integration to Alge-Timing's Timy3. This is experimental feature and should be tested before using in the compeition.
+
+- [Instructions for the Timy3](alge-timing.md)
+
+
+### starttiin.fi
+
+*kx-results* has an integration to [startiin.fi](https://startiin.fi) to import athletes. Starttiin.fi is system by [Finnish Rowing and Canoing Federation](https://melontajasoutuliitto.fi).
 
 - [Instructions for starttiin.fi (in Finnish)](starttiin.md)
 
