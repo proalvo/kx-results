@@ -1,12 +1,12 @@
 # Alge-Timing Timy(3)
 
-This is an experimental feature made in 9/2026. You should test before using it.
+This is an experimental feature made in 9/2026. You should test before using it. **Instuctions are not ready yet**, but you might get the software working anyhow.
 
 Requirements:
 - You need Alge Timing's Timy3. It might work with older versions also.
 - Timy3 is connected to the PC with USB cable or RS232-USC adapter.
-  - If the Timy is connected to directly to the PC with USB cable, you need to install Alge's driver.
-  - If the Timy is connected to the PC with RS232-USB adapter, then the Timy is not recognized automatically - just use "connect anyway" to connect.
+  - If the Timy is connected directly to the PC with USB cable, you need to install Alge's driver.
+  - If the Timy is connected to the PC with RS232-USB adapter, then the Timy is not recognized automatically. You might need some USB Serial driver on windows copmuter. Once you figures aout how the RS232-USB is working,just use the "connect anyway" to connect.
  
 ## Reference documentation
 
