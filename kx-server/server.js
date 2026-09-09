@@ -12,8 +12,10 @@ const { api } = require('./lib/api');
 const { attachWebPublisher } = require('./lib/publisher-wire');
 const { attachStarttiin } = require('./lib/starttiin');
 const leaderboardAPI = require('./lib/leaderboard-api');
+// Alge Timing's Timy
+const { attachTimy } = require('./lib/timy-wire');
 
-
+//
 const DB_FILE = process.argv[2] ?? path.join(__dirname, 'kx.db');
 const PORT = +(process.argv[3] ?? 3000);
 const PUBLIC = path.join(__dirname, 'public');
@@ -36,6 +38,9 @@ const leaderRoutes = leaderboardAPI(db);     // Add leaderboard routes
 Object.assign(routes, leaderRoutes);         // Merge leaderboard routes into main routes
 const web = attachWebPublisher(db, routes);  // adds /api/web/* routes
 attachStarttiin(db, routes, notify);         // adds /api/starttiin/* routes
+
+const timy = attachTimy(db, routes, notify); // adds /api/timy/* routes; no-op
+                                             // when timy-bridge/ is absent
 
 // --- http -------------------------------------------------------------------
 // Match a request against the routes registered with ':param' segments.
@@ -137,8 +142,14 @@ const server = http.createServer(async (req, res) => {
 
 if (require.main === module) {
   server.listen(PORT, () =>
-    console.log(`🚀 KX-Results server: http://localhost:${PORT}  (db: ${DB_FILE})`
-              + `\n📊 Leaderboard: http://localhost:${PORT}/leaderboard`));
+    console.log(`\n\n KX-Results server: http://localhost:${PORT}  (db: ${DB_FILE})`
+              + `\n Leaderboard: http://localhost:${PORT}/leaderboard`
+              + `\n Press Ctrl + C to stop the software\n\n`));
+    process.on('SIGINT', () => {
+      timy.stop();
+      for (const res of sseClients) res.end();
+      server.close(() => process.exit(0));
+    });       
 }
 
 module.exports = { server, db };
