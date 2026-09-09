@@ -22,7 +22,7 @@ Installation:
 cd {your document root}/kx-server/timy-bridge/
 npm install
 ```
-You might get warnings when running the install command. However, the software should work anyhow. Follow the instructions if you want to make sure that the softare is latest.
+You might get warnings when running the install command. However, the software should work anyhow. Follow the instructions if you want to make sure that the softare is the latest.
 
 You are ready now. Start to software normally
 
@@ -42,6 +42,22 @@ sude node server.js
 ## Configuration
 
 Setup page have instruction to connect to the Timy.
+
+Connect the Timy with with USB cable or RS232-USB adapter cable. If you use the USB cable and Windows 10/11 you need to install the driver which can be downloaded from Alge-Timing's page. 
+
+With Linux you propably need to use the RS232-USB adapter cable. In this case the Timy is not recognised automatically, but you can connect anyway.
+
+![Connecting to Timy](images/timy-setting-1.png) 
+
+There are additional setting to set thresholds to recognize faulty impulses from the Timy. 
+
+Timy support different methdos to send the time. Different methods are idenfied by the channel. **Note: I have not been able to test different methods**
+
+- TT - total time
+- RT - run time
+- c0/c1 - Time sends start time and end time separatly.
+
+![Connecting to Timy](images/timy-setting-2.png) 
 
 ## How to use
 
