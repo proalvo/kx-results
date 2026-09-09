@@ -108,9 +108,19 @@
      without working the athlete counts out by hand. -->
 <div id="ttSplitBanner" class="hint" style="display:none; margin:.5rem 0"></div>
 
+<!-- ALGE Timy3 impulse queue. Rendered by /timy-panel.js, and only when the
+     optional timy-bridge/ is installed on this machine — otherwise
+     /api/timy/status answers { available: false } and this stays empty. -->
+<div id="timyPanel"></div>
+
 <table id="tbl"><thead></thead><tbody></tbody></table>
 
 <div class="note" id="note"></div>
+
+<!-- Optional Timy3 timing. Loaded before the page script so TimyPanel exists
+     by the time init() is called at the bottom; it is a no-op when the
+     bridge is not installed. -->
+<script src="/timy-panel.js"></script>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -535,9 +545,17 @@ new EventSource('/api/stream').onmessage = ev => {
       loadTable();
     });
   }
+  // Reuse this one stream for the Timy3 panel rather than opening a second
+  // EventSource: Chrome allows six connections per origin and an SSE stream
+  // holds one open for the whole page.
+  if (typeof TimyPanel !== 'undefined') TimyPanel.onNotify(ev.data);
 };
 
 loadActiveCompetition();
+
+// Timy3 impulse queue. Renders nothing when timy-bridge/ is absent, so this
+// call is safe on every installation.
+TimyPanel.init();
 </script>
 </body>
 </html>

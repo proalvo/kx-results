@@ -40,7 +40,7 @@
 </head>
 <body>
 <h1>KX-Results — Setup</h1>
-<nav style="margin-bottom:.4rem"><a href="/start.html">Start Here</a> | <a href="/">Phase page (Chief of Scoring)</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
+<nav style="margin-bottom:.4rem"><a href="/start.html">Start Here</a> | <a href="/">Phase page</a> | <a href="/setup.html">Setup</a> | <a href="/rules.html">Rules</a> | <a href="/gate-judge.html">Gate Judge</a> | <a href="/stream-startlist-control.html">Stream Control: Start List</a> | <a href="/stream-results-control.html">Stream Control: Results</a></nav>
 <nav style="margin-bottom:1rem; font-size:.9rem; color:#5a7286">Active competition: <strong id="navCompName" style="color:#16324a">—</strong> (<a href="/start.html">switch</a>)</nav>
 
 <h2>1. Competitions</h2>
@@ -108,6 +108,14 @@ the default for every competition. Applies to the active competition
 <button id="ttSaveBtn" type="button">Save split-time settings</button>
 <button id="ttDisableBtn" type="button" style="background:white; color:#16324a; border:1px solid #b7c6d4">Disable (use direct time entry)</button>
 <div class="note" id="ttNote"></div>
+
+<!-- Electronic Time Trial timing. This is a setting of THIS COMPUTER, not of
+     the competition: the serial port belongs to the machine the Timy3 is
+     plugged into, so it is deliberately not stored on the competition and
+     does not travel with a copied database. The id="timy" anchor is linked
+     to from the Phase page when the Timy is not connected. -->
+<h2 id="timy">1b. Timy3 Timing (optional)</h2>
+<div id="timySetup"></div>
 
 <h2>2. Events</h2>
 <p class="hint">Events are listed in the running order you set here. Use the
@@ -641,13 +649,18 @@ new EventSource('/api/stream').onmessage = ev => {
   if (ev.data === 'rules') { loadRules(); loadEvents(); }
   if (ev.data === 'athletes') loadAthletes();
   if (ev.data === 'app-state') location.reload();
+  // Reuse this one stream for the Timy3 section rather than opening a second
+  // EventSource: Chrome allows six connections per origin and an SSE stream
+  // holds one open for the whole page.
+  if (typeof TimySetup !== 'undefined') TimySetup.onNotify(ev.data);
 };
 
 (async () => { await loadCompetitions(); await loadRules(); await loadActiveCompetition(); await loadBranding(); await loadWebSection(); })();
 </script>
+
+<!-- Timy3 port selection. Renders an explanatory note instead of controls when
+     timy-bridge/ is not installed, so the section is never a dead end. -->
+<script src="/timy-setup.js"></script>
+<script>TimySetup.init();</script>
 </body>
 </html>
-
-
-
-
