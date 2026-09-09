@@ -62,3 +62,5 @@ Timy support different methdos to send the time. Different methods are idenfied 
 ## How to use
 
 Go to the Page page, and start the Time Trial. Accept valid timestamps.
+
+![Connecting to Timy](images/timy-timing-2.png) 
