@@ -157,7 +157,7 @@ test('each sheet names the competition, the event and the venue', async () => {
   await ready;
   const s = sheetFor('MX1');
   assert.match(s, /<div class="comp">Koskicross SM 2026 — Miesten koskicross<\/div>/);
-  assert.match(s, /<h1>Official Result: MX1/);
+  assert.match(s, /<h3>Official Result: MX1/);
   // Finnish competition -> Finnish date convention, not the printer's.
   assert.match(s, /<div class="meta">Vantaankoski · 01\.08\.2026 – 02\.08\.2026<\/div>/);
 });
@@ -265,7 +265,7 @@ test('an unfinished event is badged provisional and explains itself', async () =
   const s = sheetFor('WX1');
   assert.match(s, /<span class="badge provisional">Provisional<\/span>/);
   // The words "Official Result" must appear nowhere on an unfinished sheet.
-  assert.match(s, /<h1>Provisional Result: WX1/);
+  assert.match(s, /<h3>Provisional Result: WX1/);
   assert.ok(!/Official Result/.test(s), 'no "Official Result" on a provisional sheet');
   assert.match(s, /class="caveat">No official classification has been compiled/);
   // Ordered by time trial: Ojala 61.5, Peltola 62.75, Nieminen 64.0
