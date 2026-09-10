@@ -1,1 +1,277 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>KX-Results</title>
+<style>
+  /* The palette, radii and control shapes are lifted from public/start.html on
+     purpose. This window is the first thing the Chief of Scoring sees and the
+     browser tab is the second; a launcher with its own visual identity would
+     read as a different piece of software. */
+  :root {
+    --ink:      #16324a;
+    --ink-soft: #46647a;
+    --muted:    #5a7286;
+    --line:     #b7c6d4;
+    --tint:     #eef6ff;
+    --panel:    #f4f8fb;
+    --ok:       #256029;
+    --err:      #7a2e2e;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  /* The window is a fixed 400x500 frame, and the frame's title bar is a
+     different height on every platform. The column therefore has to survive
+     roughly 440-490px of usable height: spacing is tight, the status block is
+     pushed to the bottom with margin-top:auto rather than with a fixed height,
+     and the whole thing may scroll rather than clip if a very long database
+     path pushes it over. */
+  body {
+    margin: 0;
+    padding: .95rem 1.1rem 1.1rem;
+    font-family: system-ui, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    overflow-y: auto;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+
+  header { display: flex; align-items: center; gap: .7rem; }
+  header img { width: 38px; height: 38px; flex: none; }
+  h1 { font-size: 1.25rem; margin: 0; line-height: 1.1; }
+  header .sub { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
+
+  label {
+    display: block;
+    font-size: .8rem;
+    color: var(--ink-soft);
+    margin: .55rem 0 .1rem;
+  }
+
+  select, input {
+    font: inherit;
+    width: 100%;
+    padding: .5rem .55rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  .row { display: flex; gap: .45rem; }
+  .row input { flex: 1; }
+  .row button { flex: none; width: auto; padding: .5rem .8rem; }
+
+  .hint {
+    font-size: .74rem;
+    color: var(--muted);
+    margin-top: .22rem;
+    overflow-wrap: anywhere;
+  }
+
+  button {
+    font: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: .55rem;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+  }
+  button:hover:not(:disabled) { background: var(--panel); }
+  button.primary {
+    width: 100%;
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+    font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) { background: #1e4361; }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid #2f7fb8; outline-offset: 1px; }
+
+  /* Status sits directly above the buttons and is the only thing in the window
+     that changes on its own. Empty until there is something true to say. */
+  #status {
+    margin-top: auto;
+    background: var(--tint);
+    border-radius: 6px;
+    padding: .5rem .6rem;
+    font-size: .8rem;
+    line-height: 1.35;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+  #status b { color: var(--ink); }
+  #status.err { background: #fdeceb; color: var(--err); }
+  #status.ok  { background: #eaf4ea; color: var(--ok); }
+
+  .actions { display: flex; flex-direction: column; gap: .4rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <img id="logo" src="../public/favicon.svg" alt="">
+  <div>
+    <h1>KX-Results</h1>
+    <div class="sub" id="version">Result service for ICF Kayak Cross</div>
+  </div>
+</header>
+
+<div>
+  <label for="address">Address</label>
+  <select id="address"></select>
+  <div class="hint" id="addressHint"></div>
+</div>
+
+<div>
+  <label for="port">Port</label>
+  <input id="port" type="number" min="1" max="65535" step="1" value="3000">
+</div>
+
+<div>
+  <label for="db">Database</label>
+  <div class="row">
+    <input id="db" type="text" value="kx.db" spellcheck="false">
+    <button id="browse" type="button">Browse…</button>
+  </div>
+  <div class="hint" id="dbHint"></div>
+</div>
+
+<div id="status">Not running yet.</div>
+
+<div class="actions">
+  <button id="launch" class="primary" type="button">Launch User Interface</button>
+  <button id="quit" type="button">Quit</button>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const els = {
+    logo: $('logo'), version: $('version'),
+    address: $('address'), addressHint: $('addressHint'),
+    port: $('port'), db: $('db'), dbHint: $('dbHint'), browse: $('browse'),
+    status: $('status'), launch: $('launch'), quit: $('quit'),
+  };
+
+  let addresses = [];
+
+  // A checkout without public/favicon.svg should not show a broken-image icon
+  // in the corner of the launcher.
+  els.logo.addEventListener('error', () => { els.logo.style.display = 'none'; });
+
+  function setStatus(text, kind = '') {
+    els.status.className = kind;
+    els.status.innerHTML = text;
+  }
+
+  const escapeHtml = s => String(s).replace(/[&<>"]/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  // Say what choosing this address actually does, because it decides who can
+  // reach the competition — the Gate Judge phones and the leaderboard screen
+  // need a network address, and localhost will quietly not serve them.
+  function describeAddress() {
+    const a = addresses.find(x => x.id === els.address.value);
+    els.addressHint.textContent = !a ? ''
+      : a.id === 'localhost'
+        ? 'Only this computer can reach the results.'
+        : 'Gate Judge phones, the leaderboard screen and stream overlays use this address.';
+  }
+
+  async function describeDb() {
+    const full = await window.kx.resolveDb(els.db.value);
+    els.dbHint.textContent = full;
+  }
+
+  function showRunning(running) {
+    if (!running) { setStatus('Not running yet.'); return; }
+    setStatus(
+      `Running at <b>${escapeHtml(running.url)}</b><br>Database: ${escapeHtml(running.dbPath)}`,
+      'ok');
+  }
+
+  async function init() {
+    const info = await window.kx.init();
+    addresses = info.addresses;
+
+    els.address.innerHTML = '';
+    for (const a of addresses) {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.label;
+      els.address.append(opt);
+    }
+    els.address.value = addresses.some(a => a.id === info.settings.addressId)
+      ? info.settings.addressId
+      : addresses[0].id;
+
+    els.port.value = info.settings.port;
+    els.db.value = info.settings.dbFile;
+    els.version.textContent = `Version ${info.version}`;
+
+    describeAddress();
+    await describeDb();
+    showRunning(info.running);
+  }
+
+  els.address.addEventListener('change', describeAddress);
+  els.db.addEventListener('input', describeDb);
+
+  els.browse.addEventListener('click', async () => {
+    const picked = await window.kx.browseDb(els.db.value);
+    if (picked) { els.db.value = picked; await describeDb(); }
+  });
+
+  els.launch.addEventListener('click', async () => {
+    els.launch.disabled = true;
+    const wasRunning = els.status.classList.contains('ok');
+    setStatus(wasRunning ? 'Opening the browser…' : 'Starting the results server…');
+    try {
+      const r = await window.kx.launch({
+        addressId: els.address.value,
+        port: els.port.value,
+        dbFile: els.db.value,
+      });
+      showRunning(r);
+    } catch (e) {
+      // Electron prefixes IPC rejections with the handler name; the operator
+      // needs the sentence, not the plumbing.
+      setStatus(escapeHtml(String(e.message ?? e).replace(/^Error invoking remote method '[^']*':\s*/, '')
+                                                 .replace(/^Error:\s*/, '')), 'err');
+    } finally {
+      els.launch.disabled = false;
+    }
+  });
+
+  els.quit.addEventListener('click', () => {
+    els.quit.disabled = els.launch.disabled = true;
+    setStatus('Stopping the results server…');
+    window.kx.quit();
+  });
+
+  // Enter anywhere in the form launches: the common visit to this window is
+  // open it, check the address, press one key.
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !els.launch.disabled) els.launch.click();
+  });
+
+  window.kx.onStatus(s => showRunning(s.running));
+
+  init().catch(e => setStatus(escapeHtml(String(e.message ?? e)), 'err'));
+</script>
+</body>
+</html>
