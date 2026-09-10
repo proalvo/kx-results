@@ -1,23 +1,118 @@
 {
   "name": "kx-results",
-  "version": "0.1.0",
-  "description": "Result service for ICF Kayak Cross competitions \u2014 server with KX-Web publisher",
-  "main": "server.js",
+  "author": {
+    "name": "Kari Nykänen"
+  },
+  "version": "1.0.0",
+  "description": "Result service for ICF Kayak Cross competitions — desktop application with KX-Web publisher and ALGE Timy3 timing",
+  "main": "electron/main.js",
   "engines": {
     "node": ">=22.5"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "electron .",
+    "start:server": "node server.js",
+    "postinstall": "node scripts/postinstall.js",
     "seed": "node scripts/seed.js",
     "upload-rules": "node scripts/upload-rules.js",
-    "test": "node --test"
+    "test": "node --test",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
   "dependencies": {},
+  "devDependencies": {
+    "electron": "^43.0.0",
+    "electron-builder": "^26.0.0"
+  },
   "_comment_dependencies": [
-    "The skeleton intentionally has ZERO dependencies (node:http + node:sqlite).",
-    "Planned additions for the next development steps:",
-    "  socket.io        \u2014 Gate Judge messaging (replaces the SSE stub in server.js)",
-    "  better-sqlite3   \u2014 optional drop-in for node:sqlite (same API, see lib/db.js)",
-    "  pdfkit or puppeteer \u2014 start list / result PDF printing"
+    "The server still has ZERO runtime dependencies: node:http + node:sqlite.",
+    "Electron and electron-builder are build-time only — `node server.js` runs",
+    "with nothing installed at all, exactly as before.",
+    "The one native dependency, serialport, belongs to timy-bridge and is now",
+    "installed with the application rather than by hand. Its binding is N-API,",
+    "so the prebuilt binary npm downloads loads unchanged in both Electron and",
+    "plain Node: no compiler, no toolchain, no electron-rebuild, and one",
+    "installation that serves both ways of running the software.",
+    "If the binding is missing anyway, nothing is broken: the bridge reports",
+    "serialport_available:false and Time Trial times are entered by hand."
+  ],
+  "build": {
+    "appId": "fi.proalvo.kx-results",
+    "productName": "KX-Results",
+    "asar": false,
+    "files": [
+      "electron/**",
+      "lib/**",
+      "public/**",
+      "rules/**",
+      "schema.sql",
+      "server.js",
+      "timy-bridge/**",
+      "timy-bridge/node_modules/**",
+      "!timy-bridge/test/**",
+      "!timy-bridge/timy-config.json",
+      "!**/*.map",
+      "!**/{test,__tests__,.github,.vscode}/**"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "KX-Results",
+      "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.sports",
+      "icon": "build/icon.icns",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "build/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}-${arch}.${ext}"
+    }
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": true
+  },
+  "_comment_build": [
+    "asar is off. Packing the app into app.asar means the server is forked from a",
+    "path inside an archive and the archive is also the fork's cwd, which is where",
+    "the packaged build kept going wrong. Unpacked costs install size and lets",
+    "anyone read the source, neither of which matters for this software. Turn it",
+    "back on later if you want, but test a packaged build before a competition.",
+    "The launcher writes nothing next to the executable — kx.db, launcher.json,",
+    "timy-config.json and launcher.log all live in the per-user data folder, so an",
+    "installed copy under Program Files stays read-only.",
+    "electron-builder validates this block against a strict schema: any key it",
+    "does not know is a hard error, which is why these notes live out here.",
+    "nsis and portable both produce .exe, so each target names its own artifact;",
+    "a single top-level artifactName makes the second overwrite the first.",
+    "linux.desktop is omitted deliberately: in 26.x its generated schema types",
+    "the entry record as a function, so an object literal fails validation. The",
+    ".desktop file is derived from productName and description anyway."
   ]
 }

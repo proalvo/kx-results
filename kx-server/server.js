@@ -1,7 +1,14 @@
+
 // server.js — KX-Results server with 24" Leaderboard (zero-dependency skeleton).
 //
 // Built on node:http + node:sqlite so it runs with nothing but Node >= 22.5:
 //     node server.js [dbfile] [port]
+//
+// The desktop build (electron/main.js) does not use the command line: it forks
+// electron/server-child.js, which requires this file and calls start(). The
+// database file, port and bind address therefore also come from KX_DB_FILE,
+// KX_PORT and KX_HOST, so the same server.js serves both the terminal and the
+// packaged app with no branch anywhere in the request path.
 
 'use strict';
 const http = require('node:http');
@@ -16,8 +23,15 @@ const leaderboardAPI = require('./lib/leaderboard-api');
 const { attachTimy } = require('./lib/timy-wire');
 
 //
-const DB_FILE = process.argv[2] ?? path.join(__dirname, 'kx.db');
-const PORT = +(process.argv[3] ?? 3000);
+// argv wins over the environment: someone typing `node server.js other.db 4000`
+// at the scoring desk means it, even inside the desktop app's shell.
+const DB_FILE = process.argv[2] ?? process.env.KX_DB_FILE ?? path.join(__dirname, 'kx.db');
+const PORT = +(process.argv[3] ?? process.env.KX_PORT ?? 3000);
+// Default to every interface, which is what the Gate Judge phones need. The
+// desktop launcher narrows this to 127.0.0.1 when the operator picks the
+// localhost address, so a laptop on a public wifi is not serving the
+// competition to the whole network unless that was asked for.
+const HOST = process.env.KX_HOST ?? '0.0.0.0';
 const PUBLIC = path.join(__dirname, 'public');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript',
                '.css': 'text/css', '.svg': 'image/svg+xml' };
@@ -140,16 +154,46 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
-if (require.main === module) {
-  server.listen(PORT, () =>
-    console.log(`\n\n KX-Results server: http://localhost:${PORT}  (db: ${DB_FILE})`
-              + `\n Leaderboard: http://localhost:${PORT}/leaderboard`
-              + `\n Press Ctrl + C to stop the software\n\n`));
-    process.on('SIGINT', () => {
-      timy.stop();
-      for (const res of sseClients) res.end();
-      server.close(() => process.exit(0));
-    });       
+// --- lifecycle --------------------------------------------------------------
+// start()/stop() exist so the process that owns the server is not required to
+// be the process that was started from a command line. The desktop launcher
+// needs the listen error (EADDRINUSE, EACCES) as a rejected promise it can put
+// in front of the operator — "Port 3000 is already in use" is a fixable
+// problem, and a stack trace on a hidden stdout is not.
+function start({ port = PORT, host = HOST } = {}) {
+  return new Promise((resolve, reject) => {
+    const onError = err => { server.off('listening', onListening); reject(err); };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve({ port: server.address().port, host, db_file: DB_FILE });
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, host);
+  });
 }
 
-module.exports = { server, db };
+// Close in the order things were opened: the timing bridge first (it is a
+// child process holding a serial port), then the SSE streams, which would
+// otherwise keep the HTTP server open forever — every leaderboard and Gate
+// Judge page is a connection that never ends by itself.
+function stop() {
+  return new Promise(resolve => {
+    try { timy.stop(); } catch { /* bridge already gone */ }
+    for (const res of sseClients) { try { res.end(); } catch { /* client gone */ } }
+    sseClients.clear();
+    if (!server.listening) return resolve();
+    server.close(() => resolve());
+  });
+}
+
+if (require.main === module) {
+  start().then(() =>
+    console.log(`\n\n KX-Results server: http://localhost:${PORT}  (db: ${DB_FILE})`
+              + `\n Leaderboard: http://localhost:${PORT}/leaderboard`
+              + `\n Press Ctrl + C to stop the software\n\n`))
+    .catch(err => { console.error(`\n Could not start: ${err.message}\n`); process.exit(1); });
+  process.on('SIGINT', () => { stop().then(() => process.exit(0)); });
+}
+
+module.exports = { server, db, start, stop, DB_FILE, PORT, HOST };
