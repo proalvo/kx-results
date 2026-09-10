@@ -1,6 +1,6 @@
 # Alge-Timing Timy(3)
 
-This is an experimental feature made in 9/2026. You should test before using it. **Instuctions are not ready yet**, but you might get the software working anyhow.
+This is an experimental feature made in 9/2026. You should test before using it. 
 
 Requirements:
 - You need Alge Timing's Timy3. It might work with older versions also.
