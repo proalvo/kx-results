@@ -105,7 +105,6 @@ You can use second computer to show the leaderboard, then use an IP address of t
 
 ## Roadmap
 
-- Usability improvement:Move list of competitions from Setup page to Start page. This improves usability. (DONE, not published)
 - Usability improvement: You can use Enter to move to next row when inputting Time and Finish, except in last row - you need to use tab to move aways from the active field. It should accept Enter in last row also.
 - Usability improvement: Adjust input field lengths.
 - Setup to publish results in Internet is too compicated now (requires manual work from the host of the *kx-web*) - this could be done in self-service.
