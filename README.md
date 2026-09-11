@@ -27,13 +27,13 @@ Main screen to orgestrate the competition:
 - Start lists and results are ready available for the live streaming.
 - Leaderboard for on site competition information 
 
-## Quick start
+## Quick start for Windows users
 
 Download setup file for the Windows 10/11 and install it. Note: this software is not certified by Microsoft, so you might get security warnings during the installation. Just ignore warning and install the software. 
 
 **[Download KX-Results for Windows 10/11 (KX-Results-Setup-1.0.0-x64.zip) from here.](https://wwcf.fi/download/KX-Results-Setup-1.0.0-x64.zip)** 
 
-## How to install and use the software - Linux & developers
+## Slow start for Linux users & developers
 
 1. Install [node](https://nodejs.org/) to your computer. This has been tested with Linux/Mint but 'should' work with Windows also, maybe even with Apple.
 2. Download this zip-file from Google Drive  [kx-server.zip](https://drive.google.com/file/d/183KX86Cx49l5AhEFrWsaoJjoRE3zYqfy/view?usp=sharing)
