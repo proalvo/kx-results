@@ -116,7 +116,6 @@ You can use second computer to show the leaderboard, then use an IP address of t
 - first_name_initial should be without dot (.)
 - Graphics for the live streaming can be modified easier.
 - It should be possible to delete a rule. This is mainly to clean rules with errors when developing a ruleset.
-- Print startlists as PDF
 - Country flags (in addition to country code) in streaming views.
 
 ## Knows bugs or features that require improvement
@@ -126,5 +125,5 @@ You can use second computer to show the leaderboard, then use an IP address of t
 
 ## Version history
 
-1.0.0 (11/09/2026) Setup file is available for the Windows 10 and 11.
-Upcoming: 1.1.0 Printing start lists is added (there are already many other printed documents). Athlete names and BIBs can be edited. 
+- V 1.0.0 (11/09/2026) Setup file is available for the Windows 10 and 11.
+- Upcoming: 1.1.0 Printing start lists is added (there are already many other printed documents). Athlete names and BIBs can be edited. 
