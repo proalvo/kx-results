@@ -46,7 +46,7 @@ To build both 64-bit and ARM (Surface machines and similar):
 
 ```
 npm exec -- electron-builder --win --x64 --arm64
-
+```
 ## 3. Test the installer on a clean machine
 
 Install it, then check the three things that only break on a real Windows box:
