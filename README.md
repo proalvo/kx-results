@@ -125,5 +125,5 @@ You can use second computer to show the leaderboard, then use an IP address of t
 
 ## Version history
 
-- V 1.0.0 (11/09/2026) Setup file is available for the Windows 10 and 11.
-- Upcoming: 1.1.0 Printing start lists is added (there are already many other printed documents). Athlete names and BIBs can be edited. 
+- Version 1.0.0: (11/09/2026) Setup file is available for the Windows 10 and 11.
+- Version 1.1.0: Print start lists (there are already many other printed documents). Athlete names and BIBs can be edited. 
