@@ -124,4 +124,7 @@ You can use second computer to show the leaderboard, then use an IP address of t
 - Minor: Date format should be according to location (country) of the competition, now weekdays start from Sunday and date/time format is 7/31/2026 8:42:11 PM.
 - Medium: Occationally the software can be slow - it may take several seconds when you click the menu item. Good things is that it always works, but it can be annoying or confusing when you do not get immediate respond. Reason for the slow actions is unknown at the moment.
 
+## Version history
 
+1.0.0 (11/09/2026) Setup file is available for the Windows 10 and 11.
+Upcoming: 1.1.0 Printing start lists is added (there are already many other printed documents). Athlete names and BIBs can be edited. 
