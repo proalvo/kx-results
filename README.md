@@ -10,7 +10,8 @@ Main screen to orgestrate the compeition:
 
 ------
 ![KX-Results main screen](images/kx-results-index.png) 
-------
+
+-----
 
 
 ## Features
