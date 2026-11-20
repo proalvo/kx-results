@@ -31,7 +31,8 @@ Timy support different methdos to send the time. Different methods are idenfied 
 ## How to use
 
 Go to the Page page, and start the Time Trial. Accept valid timestamps.
-*This is screenshot from the oleder version of the UI, but the latest version works in the same way.*
+
+*This is screenshot from the old version of the UI, but the latest version works in the same way.*
 ![Connecting to Timy](images/timy-timing-2.png) 
 
 
