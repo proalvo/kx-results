@@ -24,7 +24,7 @@ Katso kilpailun *raceId* ja *API-avain* starttiin.fi:n valikon kohdasta API-AVAI
 Tee *kx-results*issa vastaavat sarjat kuin lähtölistassa
   - Laita **Code** kenttään lähtölistan mukaisesti MX1, WX1, jne.
     
-![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-event-code.png "Sarjan perustaminen")
+![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-event-code-1-2-0.png "Sarjan perustaminen")
 
 
 ## 4. Lataa lähtölistat
@@ -34,4 +34,4 @@ Mene `kx-results`sissa kohtaan **3. Athletes**, ja valitse **Upload athletes** �
   - Tarkasta lista ja paina **SAVE**
   - Nyt sinulla on kilpailijat ladattuna. Voit tarkastaa ne *Setup* sivulla.
 
-![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-import.png "Lähtölistan lataaminen")
+![Koodin lisääminen](https://github.com/proalvo/kx-results/blob/main/images/starttiin-import-1-2-0.png "Lähtölistan lataaminen")
