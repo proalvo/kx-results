@@ -9,7 +9,7 @@ Start lists and results can be printed as PDF, and results sync easily to a publ
 Main screen to orgestrate the competition:
 
 ------
-![KX-Results main screen](images/kx-results-index.png) 
+![KX-Results main screen](images/kx-results-index-1-2-0.png) 
 
 -----
 
