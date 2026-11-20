@@ -17,7 +17,7 @@ Connect the Timy with with USB cable or RS232-USB adapter cable. If you use the 
 
 With Linux you propably need to use the RS232-USB adapter cable. In this case the Timy is not recognised automatically, but you can connect anyway.
 
-![Connecting to Timy](images/timy-setting-1.png) 
+![Connecting to Timy](images/alge-timing-1-2-0.png) 
 
 There are additional setting to set thresholds to recognize faulty impulses from the Timy. 
 
@@ -27,12 +27,11 @@ Timy support different methdos to send the time. Different methods are idenfied 
 - RT - run time
 - c0/c1 - Time sends start time and end time separatly.
 
-![Connecting to Timy](images/timy-setting-2.png) 
 
 ## How to use
 
 Go to the Page page, and start the Time Trial. Accept valid timestamps.
-
+*This is screenshot from the oleder version of the UI, but the latest version works in the same way.*
 ![Connecting to Timy](images/timy-timing-2.png) 
 
 
