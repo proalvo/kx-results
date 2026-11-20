@@ -47,6 +47,10 @@ Download setup file for the Windows 10/11 and install it. Note: this software is
 
 Hint! You can give the database and port as command line parameters, e.g. `node server.js test.db 3001`. You cannot omit the database part if you want to use other database than default, which is *kx.db*. This is great way to create the database for the testing and learning purposes.
 
+## How to create progression system for competitions
+
+You can create your own progression system for a competition depending number of athletes. I need to create instructions to create the file for the progression system, but you can see the basic idea from here https://github.com/proalvo/kx-results/tree/main/kx-server/rules. Progression system is *json* file which describes step by step how athletes advance during the compeition.  
+
 ## How to upload athletes
 
 See examples of files *KXM-6-athletes.csv* and *KXN-8-athletes.csv*. There are ready mady rule sets for 6 and 8 athletes, so it is fast to test with those files. 
@@ -79,17 +83,6 @@ If you are running a smaller competition, you can increase or decrease the font 
 
 - Hold Ctrl and scroll the mouse wheel up to make the text larger.
 - Hold Ctrl and scroll down to make the text smaller.
-
-URL:
-```
-http://{ip-address}:{port}/leaderboard
-or
-http://{ip-address}:{port}/leaderboard?interval={time in seconds}
-```
-For example:
-```
-http://localhost:3000/leaderboard
-```
 
 You can use second computer to show the leaderboard, then use an IP address of the your computer where you are running kx-results. `ifconfig` (Linux) and `ipconfig` (Windows) commands can be used to find out the IP address of the kx-results computer.
 
