@@ -31,6 +31,7 @@ Main screen to orgestrate the competition:
 
 Download setup file for the Windows 10/11 and install it. Note: this software is not certified by Microsoft, so you might get security warnings during the installation. Just ignore warning and install the software. 
 
+Version 1.2.0 is coming in November 2026.
 **[Download KX-Results for Windows 10/11 (KX-Results-Setup-1.0.0-x64.zip) from here.](https://wwcf.fi/download/KX-Results-Setup-1.0.0-x64.zip)** 
 
 ## Slow start for Linux users & developers
@@ -128,6 +129,7 @@ You can use second computer to show the leaderboard, then use an IP address of t
 - Medium: Occationally the software can be slow - it may take several seconds when you click the menu item. Good things is that it always works, but it can be annoying or confusing when you do not get immediate respond. Reason for the slow actions is unknown at the moment.
 
 ## Version history
-
-- Version 1.0.0: (11/09/2026) Setup file is available for the Windows 10 and 11.
+- Version 1.2.0: New user interface - functionality is the same. This version improves usablity and it looks mucch better.
 - Version 1.1.0: Print start lists (there are already many other printed documents). Athlete names and BIBs can be edited. 
+- Version 1.0.0: (11/09/2026) Setup file is available for the Windows 10 and 11.
+
